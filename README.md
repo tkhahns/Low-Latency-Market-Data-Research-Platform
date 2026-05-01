@@ -1,0 +1,77 @@
+# Low-Latency Market Data & Research Platform
+
+The project is organized around three paths:
+
+- Hot path: ingest, process, cache, and serve live market data with low latency.
+- Cold path: persist raw and curated history for replay, research, and backtesting.
+- Agentic ops path: expose controlled reliability tools through MCP with RAG-backed context.
+
+## Target Architecture
+
+```mermaid
+flowchart LR
+    subgraph Hot Path
+        Feed[Market Feed / Simulator]
+        Handler[Feed Handler]
+        Kafka[(Kafka)]
+        Flink[Flink Stream Processor]
+        Redis[(Redis Hot Cache)]
+        API[WebSocket / REST API]
+        UI[Trader Dashboard]
+
+        Feed --> Handler --> Kafka --> Flink --> Redis --> API --> UI
+    end
+
+    subgraph Cold Path
+        Kafka --> Bronze[Delta Bronze]
+        Bronze --> Silver[Delta Silver]
+        Silver --> Gold[Delta Gold]
+        Gold --> Research[Research Queries / Backtests]
+    end
+
+    subgraph Agentic Ops Path
+        Docs[Docs + Runbooks]
+        Metrics[Metrics + Incidents]
+        Vector[(Postgres + pgvector)]
+        MCP[MCP Ops Server]
+        Tools[Freshness / Replay / Lineage Tools]
+
+        Docs --> Vector
+        Metrics --> Vector
+        Vector --> MCP
+        MCP --> Tools
+        Tools --> Kafka
+        Tools --> Redis
+        Tools --> Gold
+    end
+```
+
+## Repository Map
+
+| Path | Purpose |
+| --- | --- |
+| `services/feed-simulator` | Generates synthetic exchange-style market events for local and replay workflows. |
+| `services/feed-handler` | Normalizes raw feed messages, validates sequence numbers, and publishes canonical events. |
+| `services/stream-processor` | Owns Flink jobs for top-of-book, bars, rolling metrics, freshness, and alerts. |
+| `services/market-data-api` | Serves Redis-backed live state through WebSocket and REST APIs. |
+| `services/mcp-ops-server` | Exposes controlled MCP tools for reliability diagnostics and replay operations. |
+| `apps/trader-dashboard` | Frontend for live market state, latency, charts, and alerts. |
+| `lakehouse` | Databricks, Delta Lake, Spark jobs, and bronze/silver/gold table design. |
+| `contracts` | Versioned event schemas, Kafka topic contracts, and API payload contracts. |
+| `infra` | Local dependency stack, Kubernetes notes, and cloud infrastructure placeholders. |
+| `observability` | OpenTelemetry, metrics, dashboards, alerts, and SLO definitions. |
+| `docs` | Architecture, operational model, decisions, and roadmap. |
+
+## First Build Milestones
+
+1. Define canonical market data contracts and Kafka topic boundaries.
+2. Implement feed simulator and feed handler with sequence validation.
+3. Add Flink stream jobs for top-of-book, rolling bars, and freshness metrics.
+4. Serve hot state from Redis through WebSocket APIs.
+5. Land raw and curated datasets into Databricks Delta tables.
+6. Add MCP tools for freshness checks, replay dry-runs, and lineage lookup.
+7. Add dashboard views for live state, latency, alerts, and service health.
+
+## Positioning
+
+This is a data platform project, not a trading strategy project. It shows quant data infrastructure skills across streaming, lakehouse design, observability, replay, and controlled agentic operations.

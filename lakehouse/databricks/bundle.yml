@@ -1,0 +1,13 @@
+# Databricks Asset Bundle placeholder.
+# Fill this in when Databricks workspace, catalog, and deployment targets are selected.
+
+bundle:
+  name: low_latency_market_data_platform
+
+targets:
+  dev:
+    mode: development
+    default: true
+
+resources:
+  jobs: {}

@@ -1,1 +1,45 @@
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Local planning context
 context.txt
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Java / JVM
+.gradle/
+build/
+target/
+*.class
+
+# Node
+node_modules/
+.next/
+dist/
+coverage/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Logs / generated data
+logs/
+tmp/
+data/raw/
+data/checkpoints/
+data/replay/
+
+# Databricks
+.databricks/
+.bundle/

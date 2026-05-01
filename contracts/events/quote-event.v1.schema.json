@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/contracts/events/quote-event.v1.schema.json",
+  "title": "QuoteEventV1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "event_type",
+    "symbol",
+    "exchange",
+    "event_time",
+    "ingest_time",
+    "sequence_number",
+    "bid_price",
+    "bid_size",
+    "ask_price",
+    "ask_size"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "event_type": {
+      "const": "quote"
+    },
+    "symbol": {
+      "type": "string"
+    },
+    "exchange": {
+      "type": "string"
+    },
+    "event_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ingest_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sequence_number": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "bid_price": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "bid_size": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "ask_price": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "ask_size": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false
+}

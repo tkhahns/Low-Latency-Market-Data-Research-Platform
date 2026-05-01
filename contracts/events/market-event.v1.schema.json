@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/contracts/events/market-event.v1.schema.json",
+  "title": "MarketEventV1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "event_type",
+    "symbol",
+    "exchange",
+    "event_time",
+    "ingest_time",
+    "sequence_number"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "event_type": {
+      "enum": ["trade", "quote", "halt", "imbalance", "sequence_gap", "heartbeat"]
+    },
+    "symbol": {
+      "type": "string"
+    },
+    "exchange": {
+      "type": "string"
+    },
+    "event_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ingest_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sequence_number": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}
