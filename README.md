@@ -158,6 +158,31 @@ Run the local API load test after the stack is live:
 
 Benchmark setup and current known limits are tracked in `docs/performance.md`.
 
+## Cold Path Lakehouse
+
+Iteration 3 adds Databricks Delta cold-path assets under `lakehouse`:
+
+- Machine-readable Delta table contracts in `lakehouse/contracts/tables.yml`.
+- Databricks Asset Bundle jobs in `lakehouse/databricks/bundle.yml`.
+- Spark jobs for bronze ingest, silver normalization, gold features, quality reports, and replay dry-runs in `lakehouse/jobs`.
+- A research notebook example in `lakehouse/notebooks/research_backtest_example.py`.
+- Local transformation tests for bronze, silver, and gold table behavior.
+
+The cold path is replay/research infrastructure only. The live API continues to read Redis hot state and does not query Databricks.
+
+Validate local cold-path code and contracts:
+
+```bash
+.venv/bin/python -m pytest tests/unit/test_lakehouse_transforms.py tests/unit/test_lakehouse_contracts.py
+```
+
+When the Databricks CLI is available, validate/deploy the bundle from `lakehouse/databricks`:
+
+```bash
+databricks bundle validate -t dev
+databricks bundle deploy -t dev
+```
+
 ## Positioning
 
 This is a data platform project, not a trading strategy project. It shows quant data infrastructure skills across streaming, lakehouse design, observability, replay, and controlled agentic operations.

@@ -1,13 +1,97 @@
-# Databricks Asset Bundle placeholder.
-# Fill this in when Databricks workspace, catalog, and deployment targets are selected.
-
 bundle:
   name: low_latency_market_data_platform
+
+variables:
+  catalog:
+    default: market_data
+  schema:
+    default: research
+  lakehouse_base_path:
+    default: dbfs:/tmp/low_latency_market_data_platform/delta
+  lakehouse_checkpoint_path:
+    default: dbfs:/tmp/low_latency_market_data_platform/checkpoints
+  kafka_bootstrap_servers:
+    default: redpanda:9092
 
 targets:
   dev:
     mode: development
     default: true
+    variables:
+      catalog: market_data_dev
+      schema: research
+  prod:
+    mode: production
+    variables:
+      catalog: market_data
+      schema: research
 
 resources:
-  jobs: {}
+  jobs:
+    bronze_ingest:
+      name: llmdp_bronze_ingest
+      tasks:
+        - task_key: bronze_ingest
+          spark_python_task:
+            python_file: ../jobs/bronze_ingest.py
+          new_cluster: &default_cluster
+            spark_version: 15.4.x-scala2.12
+            node_type_id: n2-standard-4
+            num_workers: 1
+            spark_conf:
+              spark.databricks.delta.schema.autoMerge.enabled: "true"
+            spark_env_vars:
+              DATABRICKS_CATALOG: ${var.catalog}
+              DATABRICKS_SCHEMA: ${var.schema}
+              DATABRICKS_JOB_RUN_ID: "{{job.run_id}}"
+              KAFKA_BOOTSTRAP_SERVERS: ${var.kafka_bootstrap_servers}
+              LAKEHOUSE_BASE_PATH: ${var.lakehouse_base_path}
+              LAKEHOUSE_CHECKPOINT_PATH: ${var.lakehouse_checkpoint_path}
+          environment_key: lakehouse_env
+      environments: &job_environments
+        - environment_key: lakehouse_env
+          spec:
+            environment_version: "2"
+            dependencies:
+              - jsonschema>=4.21.0
+      email_notifications: {}
+
+    silver_normalize:
+      name: llmdp_silver_normalize
+      tasks:
+        - task_key: silver_normalize
+          spark_python_task:
+            python_file: ../jobs/silver_normalize.py
+          new_cluster: *default_cluster
+          environment_key: lakehouse_env
+      environments: *job_environments
+
+    gold_features:
+      name: llmdp_gold_features
+      tasks:
+        - task_key: gold_features
+          spark_python_task:
+            python_file: ../jobs/gold_features.py
+          new_cluster: *default_cluster
+          environment_key: lakehouse_env
+      environments: *job_environments
+
+    quality_report:
+      name: llmdp_quality_report
+      tasks:
+        - task_key: quality_report
+          spark_python_task:
+            python_file: ../jobs/quality_report.py
+          new_cluster: *default_cluster
+          environment_key: lakehouse_env
+      environments: *job_environments
+
+    replay_dry_run:
+      name: llmdp_replay_dry_run
+      tasks:
+        - task_key: replay_dry_run
+          spark_python_task:
+            python_file: ../jobs/replay_dry_run.py
+          new_cluster: *default_cluster
+          environment_key: lakehouse_env
+      environments: *job_environments

@@ -61,3 +61,15 @@ The POC exposes:
 - `WS /ws/live`
 
 The dashboard consumes `WS /ws/live`.
+
+## Delta Lake Contracts
+
+Cold-path contracts are defined in `lakehouse/contracts/tables.yml` and implemented by Databricks jobs in `lakehouse/jobs`.
+
+| Zone | Tables |
+| --- | --- |
+| Bronze | `bronze_market_events` |
+| Silver | `silver_trades`, `silver_quotes`, `silver_sequence_gaps` |
+| Gold | `gold_bars_1s`, `gold_spread_features`, `gold_volatility_features`, `gold_quality_annotations` |
+
+Every cold-path table preserves job lineage through `job_run_id` and `processed_at`. Bronze and silver preserve source topic, partition, and offset. Gold feature tables preserve source offset ranges so research results can be traced back to raw event ranges.

@@ -1,0 +1,164 @@
+version: 1
+catalog_default: market_data
+schema_default: research
+tables:
+  bronze_market_events:
+    zone: bronze
+    grain: one canonical Kafka event
+    partition_columns: [event_date, event_type]
+    required_columns:
+      - schema_version
+      - event_type
+      - symbol
+      - exchange
+      - event_time
+      - ingest_time
+      - sequence_number
+      - event_date
+      - source_topic
+      - source_partition
+      - source_offset
+      - job_run_id
+      - processed_at
+      - raw_event
+  silver_trades:
+    zone: silver
+    grain: one deduplicated trade
+    partition_columns: [event_date]
+    required_columns:
+      - schema_version
+      - symbol
+      - exchange
+      - event_time
+      - ingest_time
+      - sequence_number
+      - event_date
+      - trade_id
+      - price
+      - size
+      - conditions
+      - source_topic
+      - source_partition
+      - source_offset
+      - job_run_id
+      - processed_at
+  silver_quotes:
+    zone: silver
+    grain: one deduplicated quote
+    partition_columns: [event_date]
+    required_columns:
+      - schema_version
+      - symbol
+      - exchange
+      - event_time
+      - ingest_time
+      - sequence_number
+      - event_date
+      - bid_price
+      - bid_size
+      - ask_price
+      - ask_size
+      - spread
+      - mid_price
+      - source_topic
+      - source_partition
+      - source_offset
+      - job_run_id
+      - processed_at
+  silver_sequence_gaps:
+    zone: silver
+    grain: one detected sequence anomaly
+    partition_columns: [event_date]
+    required_columns:
+      - schema_version
+      - symbol
+      - exchange
+      - event_time
+      - event_date
+      - alert_type
+      - expected_sequence
+      - observed_sequence
+      - source_topic
+      - source_partition
+      - source_offset
+      - job_run_id
+      - processed_at
+  gold_bars_1s:
+    zone: gold
+    grain: symbol-exchange-second
+    partition_columns: [event_date]
+    required_columns:
+      - schema_version
+      - symbol
+      - exchange
+      - window_start
+      - event_date
+      - open
+      - high
+      - low
+      - close
+      - volume
+      - vwap
+      - trade_count
+      - first_sequence
+      - last_sequence
+      - first_source_offset
+      - last_source_offset
+      - job_run_id
+      - processed_at
+  gold_spread_features:
+    zone: gold
+    grain: symbol-exchange-second
+    partition_columns: [event_date]
+    required_columns:
+      - schema_version
+      - symbol
+      - exchange
+      - window_start
+      - event_date
+      - quote_count
+      - min_spread
+      - max_spread
+      - avg_spread
+      - avg_mid_price
+      - first_sequence
+      - last_sequence
+      - first_source_offset
+      - last_source_offset
+      - job_run_id
+      - processed_at
+  gold_volatility_features:
+    zone: gold
+    grain: symbol-exchange-day
+    partition_columns: [event_date]
+    required_columns:
+      - schema_version
+      - symbol
+      - exchange
+      - event_date
+      - bar_count
+      - return_count
+      - volatility_bps
+      - first_window_start
+      - last_window_start
+      - job_run_id
+      - processed_at
+  gold_quality_annotations:
+    zone: gold
+    grain: one data-quality annotation
+    partition_columns: [event_date]
+    required_columns:
+      - schema_version
+      - symbol
+      - exchange
+      - event_time
+      - event_date
+      - annotation_type
+      - severity
+      - message
+      - source_table
+      - source_topic
+      - source_partition
+      - source_offset
+      - job_run_id
+      - processed_at
