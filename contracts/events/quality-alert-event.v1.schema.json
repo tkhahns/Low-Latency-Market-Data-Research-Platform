@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/contracts/events/quality-alert-event.v1.schema.json",
+  "title": "QualityAlertEventV1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "event_type",
+    "symbol",
+    "exchange",
+    "event_time",
+    "ingest_time",
+    "sequence_number",
+    "alert_type",
+    "severity",
+    "message"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "event_type": { "const": "quality_alert" },
+    "symbol": { "type": "string" },
+    "exchange": { "type": "string" },
+    "event_time": { "type": "string", "format": "date-time" },
+    "ingest_time": { "type": "string", "format": "date-time" },
+    "sequence_number": { "type": "integer", "minimum": 0 },
+    "alert_type": {
+      "enum": [
+        "sequence_gap",
+        "duplicate_or_reordered_sequence",
+        "feed_validation_error",
+        "crossed_market",
+        "wide_spread",
+        "stale_symbol"
+      ]
+    },
+    "severity": { "enum": ["info", "warning", "critical"] },
+    "message": { "type": "string" },
+    "observed_sequence": { "type": ["integer", "null"] },
+    "expected_sequence": { "type": ["integer", "null"] }
+  },
+  "additionalProperties": false
+}

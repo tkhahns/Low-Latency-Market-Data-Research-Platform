@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Trader Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <h1>Market Data Watchlist</h1>
+          <p id="connection">Connecting</p>
+        </div>
+        <div class="metric">
+          <span>Symbols</span>
+          <strong id="symbol-count">0</strong>
+        </div>
+      </header>
+      <section class="grid" id="watchlist"></section>
+    </main>
+    <script src="/static/app.js"></script>
+  </body>
+</html>
+

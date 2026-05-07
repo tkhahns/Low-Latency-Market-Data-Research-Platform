@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/contracts/events/bar-1s-event.v1.schema.json",
+  "title": "Bar1sEventV1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "event_type",
+    "symbol",
+    "exchange",
+    "event_time",
+    "ingest_time",
+    "sequence_number",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "vwap"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "event_type": { "const": "bar_1s" },
+    "symbol": { "type": "string" },
+    "exchange": { "type": "string" },
+    "event_time": { "type": "string", "format": "date-time" },
+    "ingest_time": { "type": "string", "format": "date-time" },
+    "sequence_number": { "type": "integer", "minimum": 0 },
+    "open": { "type": "number", "exclusiveMinimum": 0 },
+    "high": { "type": "number", "exclusiveMinimum": 0 },
+    "low": { "type": "number", "exclusiveMinimum": 0 },
+    "close": { "type": "number", "exclusiveMinimum": 0 },
+    "volume": { "type": "integer", "minimum": 0 },
+    "vwap": { "type": "number", "exclusiveMinimum": 0 }
+  },
+  "additionalProperties": false
+}

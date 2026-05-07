@@ -1,0 +1,134 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #101214;
+  color: #f3f5f4;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: #101214;
+}
+
+.shell {
+  width: min(1180px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 28px 0;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 18px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 680;
+}
+
+p {
+  margin: 6px 0 0;
+  color: #aab3b0;
+}
+
+.metric {
+  min-width: 96px;
+  padding: 10px 12px;
+  border: 1px solid #2a302e;
+  border-radius: 8px;
+  background: #171b1a;
+}
+
+.metric span,
+.label {
+  display: block;
+  color: #9aa5a1;
+  font-size: 12px;
+}
+
+.metric strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 22px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.card {
+  border: 1px solid #2a302e;
+  border-radius: 8px;
+  background: #171b1a;
+  padding: 14px;
+}
+
+.card-header,
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.card-header {
+  align-items: start;
+  margin-bottom: 14px;
+}
+
+.symbol {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.status {
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: #23352e;
+  color: #8df0b0;
+  font-size: 12px;
+}
+
+.status.stale {
+  background: #3a2922;
+  color: #ffb086;
+}
+
+.row {
+  padding: 8px 0;
+  border-top: 1px solid #242a28;
+}
+
+.value {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.alerts {
+  margin-top: 12px;
+  color: #ffd28a;
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .shell {
+    width: min(100vw - 20px, 1180px);
+    padding-top: 18px;
+  }
+}
+

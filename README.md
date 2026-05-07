@@ -72,6 +72,55 @@ flowchart LR
 6. Add MCP tools for freshness checks, replay dry-runs, and lineage lookup.
 7. Add dashboard views for live state, latency, alerts, and service health.
 
+## Local POC Demo
+
+Step 0 and step 1 are implemented as a Docker Compose POC.
+
+Prerequisites:
+
+- Docker with Compose support.
+- Python virtual environment at `.venv` for local tests and service runs outside Docker.
+
+Set up local Python dependencies:
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install --upgrade pip setuptools wheel
+.venv/bin/python -m pip install -e '.[dev]'
+```
+
+Start the stack:
+
+```bash
+./scripts/run-local-demo.sh
+```
+
+Then open:
+
+- Dashboard: `http://localhost:8000`
+- API health: `http://localhost:8000/health`
+- Latest symbol snapshot: `http://localhost:8000/latest/AAPL`
+
+Local flow:
+
+```text
+feed simulator -> feed handler -> Redpanda topics -> stream processor -> Redis -> FastAPI/WebSocket -> dashboard
+```
+
+The simulator injects occasional sequence gaps. The feed handler publishes those as `market.quality.alerts.v1`; the stream processor stores recent alerts in Redis so the dashboard can surface them.
+
+Stop the stack:
+
+```bash
+docker compose -f infra/docker-compose.yml down
+```
+
+Run unit and contract tests:
+
+```bash
+.venv/bin/python -m pytest tests/unit
+```
+
 ## Positioning
 
 This is a data platform project, not a trading strategy project. It shows quant data infrastructure skills across streaming, lakehouse design, observability, replay, and controlled agentic operations.

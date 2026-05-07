@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/contracts/events/top-of-book-event.v1.schema.json",
+  "title": "TopOfBookEventV1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "event_type",
+    "symbol",
+    "exchange",
+    "event_time",
+    "ingest_time",
+    "processed_time",
+    "sequence_number",
+    "bid_price",
+    "bid_size",
+    "ask_price",
+    "ask_size",
+    "spread",
+    "mid_price"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "event_type": { "const": "top_of_book" },
+    "symbol": { "type": "string" },
+    "exchange": { "type": "string" },
+    "event_time": { "type": "string", "format": "date-time" },
+    "ingest_time": { "type": "string", "format": "date-time" },
+    "processed_time": { "type": "string", "format": "date-time" },
+    "sequence_number": { "type": "integer", "minimum": 0 },
+    "bid_price": { "type": "number", "exclusiveMinimum": 0 },
+    "bid_size": { "type": "integer", "minimum": 0 },
+    "ask_price": { "type": "number", "exclusiveMinimum": 0 },
+    "ask_size": { "type": "integer", "minimum": 0 },
+    "spread": { "type": "number" },
+    "mid_price": { "type": "number", "exclusiveMinimum": 0 }
+  },
+  "additionalProperties": false
+}

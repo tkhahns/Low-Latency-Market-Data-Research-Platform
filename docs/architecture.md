@@ -32,6 +32,17 @@ Market Feed / Simulator
 | Market Data API | Trader-facing WebSocket and REST surface backed by Redis. |
 | Trader Dashboard | Live market state, latency, health, and alert visualization. |
 
+### Local POC Ownership
+
+The local step-1 POC uses Python services for every hot-path boundary so it can run on a laptop with Docker Compose. The stream processor is intentionally small and replaceable; iteration 2 moves stateful calculations to Flink while preserving Kafka topics, Redis keys, and API contracts.
+
+| Service | Input | Output |
+| --- | --- | --- |
+| `market_platform.services.feed_simulator` | Synthetic generator config | `feed.synthetic.raw.v1` |
+| `market_platform.services.feed_handler` | `feed.synthetic.raw.v1` | `market.raw.v1`, `market.trades.v1`, `market.quotes.v1`, `market.quality.alerts.v1` |
+| `market_platform.services.stream_processor` | Trades, quotes, alerts | Redis hot keys, derived Kafka topics |
+| `market_platform.services.market_data_api` | Redis hot keys | REST, WebSocket, static dashboard |
+
 ## Cold Path
 
 ```text
@@ -50,6 +61,8 @@ Kafka / Raw Archive
 | Silver | Cleaned, deduplicated, sequence-aware trades and quotes. |
 | Gold | Research-ready bars, spread features, volatility features, and quality annotations. |
 
+Table contracts are documented in `lakehouse/README.md`. All zones preserve lineage metadata where applicable: source topic, partition, offset, schema version, job run ID, and processing timestamp.
+
 ## Agentic Ops Path
 
 ```text
@@ -67,6 +80,17 @@ Docs + lineage + metrics + incidents
 - `compare_live_vs_replay`
 - `summarize_incident`
 - `lineage_lookup`
+
+Structured tool contracts are documented in `contracts/mcp/tools.md`.
+
+## Demo Targets
+
+| Target | POC Goal |
+| --- | --- |
+| Freshness lag | Dashboard shows per-symbol lag from event time to processing time. |
+| API latency | REST reads are single Redis lookups per symbol snapshot field. |
+| Replay correctness | Redis state is derivable from canonical Kafka topics. |
+| Dashboard visibility | Watchlist shows bid, ask, spread, VWAP, freshness, and alerts. |
 
 ## Key Boundary
 

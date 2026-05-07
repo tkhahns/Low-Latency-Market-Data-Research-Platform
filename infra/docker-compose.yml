@@ -17,11 +17,12 @@ services:
       - "0"
       - --check=false
       - --kafka-addr
-      - PLAINTEXT://0.0.0.0:9092
+      - PLAINTEXT://0.0.0.0:9092,OUTSIDE://0.0.0.0:19092
       - --advertise-kafka-addr
-      - PLAINTEXT://localhost:9092
+      - PLAINTEXT://redpanda:9092,OUTSIDE://localhost:19092
     ports:
       - "9092:9092"
+      - "19092:19092"
       - "9644:9644"
 
   redis:
@@ -48,6 +49,56 @@ services:
     ports:
       - "4317:4317"
       - "4318:4318"
+
+  feed-handler:
+    build:
+      context: ..
+      dockerfile: infra/python-service.Dockerfile
+    command: ["python", "-m", "market_platform.services.feed_handler"]
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+    depends_on:
+      - redpanda
+    restart: unless-stopped
+
+  stream-processor:
+    build:
+      context: ..
+      dockerfile: infra/python-service.Dockerfile
+    command: ["python", "-m", "market_platform.services.stream_processor"]
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - redpanda
+      - redis
+    restart: unless-stopped
+
+  market-data-api:
+    build:
+      context: ..
+      dockerfile: infra/python-service.Dockerfile
+    command: ["python", "-m", "market_platform.services.market_data_api"]
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  feed-simulator:
+    build:
+      context: ..
+      dockerfile: infra/python-service.Dockerfile
+    command: ["python", "-m", "market_platform.services.feed_simulator"]
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      SYMBOLS: AAPL,MSFT,NVDA,TSLA
+      EXCHANGE: XNAS
+    depends_on:
+      - redpanda
+    restart: unless-stopped
 
 volumes:
   postgres-data:
