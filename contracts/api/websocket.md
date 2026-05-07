@@ -14,6 +14,7 @@ The API emits a snapshot every 500 ms:
       "latest_quote": {},
       "top_of_book": {},
       "bar_1s": {},
+      "metrics": {},
       "freshness": {},
       "alerts": []
     }
@@ -22,4 +23,3 @@ The API emits a snapshot every 500 ms:
 ```
 
 Future channel names should stay explicit, versioned when breaking changes are introduced, and backed by Redis state or derived Kafka topics.
-

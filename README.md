@@ -121,6 +121,43 @@ Run unit and contract tests:
 .venv/bin/python -m pytest tests/unit
 ```
 
+## MVP Stateful Streaming
+
+Iteration 2 adds a Flink job in `services/stream-processor/flink` for stateful market calculations. The default demo still uses the Python fallback processor so the POC remains easy to run. Use the Flink profile when Docker can build the Java job image:
+
+```bash
+./scripts/run-mvp-flink.sh
+```
+
+The Flink job publishes:
+
+- `market.state.top_of_book.v1`
+- `market.bars.1s.v1`
+- `market.metrics.rolling.v1`
+- `market.quality.alerts.v1`
+
+It writes Redis hot state under the keys documented in `contracts/redis/keys.md`.
+
+Rebuild Redis from derived Kafka topics:
+
+```bash
+.venv/bin/python -m market_platform.tools.rebuild_redis_from_kafka --dry-run
+```
+
+Run deterministic stream-output tests:
+
+```bash
+.venv/bin/python -m pytest tests/integration
+```
+
+Run the local API load test after the stack is live:
+
+```bash
+.venv/bin/python scripts/load-test-local.py --symbol AAPL --requests 500 --concurrency 25
+```
+
+Benchmark setup and current known limits are tracked in `docs/performance.md`.
+
 ## Positioning
 
 This is a data platform project, not a trading strategy project. It shows quant data infrastructure skills across streaming, lakehouse design, observability, replay, and controlled agentic operations.

@@ -53,3 +53,28 @@ def test_trade_to_bar_rolls_one_second_vwap():
     assert bar["volume"] == 40
     assert bar["vwap"] == 101.5
 
+
+def test_trade_to_metrics_tracks_volume_vwap_and_volatility():
+    state = StreamState()
+    base = {
+        "schema_version": "1.0",
+        "event_type": "trade",
+        "symbol": "AAPL",
+        "exchange": "XNAS",
+        "event_time": "2026-05-04T00:00:00.100Z",
+        "ingest_time": "2026-05-04T00:00:00.101Z",
+        "sequence_number": 1,
+        "price": 100.0,
+        "size": 10,
+        "trade_id": "t1",
+        "conditions": [],
+    }
+    state.trade_to_metrics(base)
+    state.trade_to_metrics({**base, "sequence_number": 2, "price": 102.0, "size": 30, "trade_id": "t2"})
+    metrics = state.trade_to_metrics({**base, "sequence_number": 3, "price": 101.0, "size": 20, "trade_id": "t3"})
+
+    assert metrics["event_type"] == "rolling_metrics"
+    assert metrics["sample_count"] == 3
+    assert metrics["rolling_volume"] == 60
+    assert metrics["rolling_vwap"] == 101.33333333333333
+    assert metrics["volatility_bps"] > 0

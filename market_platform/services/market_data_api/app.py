@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from redis.asyncio import Redis
 
 from market_platform.config import REDIS_URL
-from market_platform.redis_keys import active_symbols, alerts, bar_1s, freshness, latest_quote, top_of_book
+from market_platform.redis_keys import active_symbols, alerts, bar_1s, freshness, latest_quote, metrics, top_of_book
 from market_platform.time import utc_now_iso
 
 STATIC_DIR = Path(__file__).resolve().parents[3] / "apps" / "trader-dashboard" / "static"
@@ -37,6 +37,7 @@ async def symbol_snapshot(redis: Redis, symbol: str) -> dict[str, Any]:
         "latest_quote": await get_json(redis, latest_quote(symbol)),
         "top_of_book": await get_json(redis, top_of_book(symbol)),
         "bar_1s": await get_json(redis, bar_1s(symbol)),
+        "metrics": await get_json(redis, metrics(symbol)),
         "freshness": await get_json(redis, freshness(symbol)),
         "alerts": [json.loads(item) for item in recent_alerts],
     }

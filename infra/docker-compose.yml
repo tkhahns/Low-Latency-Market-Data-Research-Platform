@@ -74,6 +74,40 @@ services:
       - redis
     restart: unless-stopped
 
+  flink-jobmanager:
+    profiles: ["flink"]
+    build:
+      context: ..
+      dockerfile: infra/flink-job.Dockerfile
+    command: ["standalone-job", "--job-classname", "com.marketplatform.flink.MarketStateJob"]
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      REDIS_URL: redis://redis:6379/0
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        parallelism.default: 1
+        state.checkpoints.dir: file:///tmp/flink-checkpoints
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redpanda
+      - redis
+
+  flink-taskmanager:
+    profiles: ["flink"]
+    build:
+      context: ..
+      dockerfile: infra/flink-job.Dockerfile
+    command: ["taskmanager"]
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 2
+        parallelism.default: 1
+        state.checkpoints.dir: file:///tmp/flink-checkpoints
+    depends_on:
+      - flink-jobmanager
+
   market-data-api:
     build:
       context: ..

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import timezone
+from math import log, sqrt
 from typing import Any
 
 from .events import quality_alert
@@ -44,8 +45,49 @@ class BarState:
 
 
 @dataclass
+class SymbolWindow:
+    prices: list[tuple[str, float]] = field(default_factory=list)
+    volume: int = 0
+    notional: float = 0.0
+
+    def add_trade(self, event_time: str, price: float, size: int, max_points: int = 120) -> None:
+        self.prices.append((event_time, price))
+        self.prices = self.prices[-max_points:]
+        self.volume += size
+        self.notional += price * size
+
+    def metrics(self, trade: dict[str, Any]) -> dict[str, Any]:
+        returns = []
+        for index in range(1, len(self.prices)):
+            previous = self.prices[index - 1][1]
+            current = self.prices[index][1]
+            if previous > 0 and current > 0:
+                returns.append(log(current / previous))
+        if len(returns) > 1:
+            mean = sum(returns) / len(returns)
+            variance = sum((value - mean) ** 2 for value in returns) / (len(returns) - 1)
+            volatility_bps = sqrt(variance) * 10000
+        else:
+            volatility_bps = 0.0
+        return {
+            "schema_version": "1.0",
+            "event_type": "rolling_metrics",
+            "symbol": trade["symbol"],
+            "exchange": trade["exchange"],
+            "event_time": trade["event_time"],
+            "ingest_time": utc_now_iso(),
+            "sequence_number": trade["sequence_number"],
+            "sample_count": len(self.prices),
+            "rolling_volume": self.volume,
+            "rolling_vwap": self.notional / self.volume if self.volume else float(trade["price"]),
+            "volatility_bps": round(volatility_bps, 6),
+        }
+
+
+@dataclass
 class StreamState:
     bars: dict[str, BarState] = field(default_factory=dict)
+    windows: dict[str, SymbolWindow] = field(default_factory=dict)
 
     def quote_to_top_of_book(self, quote: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         spread = round(float(quote["ask_price"]) - float(quote["bid_price"]), 6)
@@ -111,3 +153,12 @@ class StreamState:
         else:
             self.bars[key].update(price, size)
         return self.bars[key].as_event(trade)
+
+    def trade_to_metrics(self, trade: dict[str, Any]) -> dict[str, Any]:
+        key = f"{trade['symbol']}:{trade['exchange']}"
+        price = float(trade["price"])
+        size = int(trade["size"])
+        if key not in self.windows:
+            self.windows[key] = SymbolWindow()
+        self.windows[key].add_trade(trade["event_time"], price, size)
+        return self.windows[key].metrics(trade)

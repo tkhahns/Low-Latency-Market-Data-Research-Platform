@@ -34,7 +34,7 @@ Market Feed / Simulator
 
 ### Local POC Ownership
 
-The local step-1 POC uses Python services for every hot-path boundary so it can run on a laptop with Docker Compose. The stream processor is intentionally small and replaceable; iteration 2 moves stateful calculations to Flink while preserving Kafka topics, Redis keys, and API contracts.
+The local step-1 POC uses Python services for every hot-path boundary so it can run on a laptop with Docker Compose. Iteration 2 adds a Flink job as the stateful streaming owner while preserving Kafka topics, Redis keys, and API contracts. The Python processor remains as a lightweight fallback for machines that cannot run the Flink profile.
 
 | Service | Input | Output |
 | --- | --- | --- |
@@ -42,6 +42,18 @@ The local step-1 POC uses Python services for every hot-path boundary so it can 
 | `market_platform.services.feed_handler` | `feed.synthetic.raw.v1` | `market.raw.v1`, `market.trades.v1`, `market.quotes.v1`, `market.quality.alerts.v1` |
 | `market_platform.services.stream_processor` | Trades, quotes, alerts | Redis hot keys, derived Kafka topics |
 | `market_platform.services.market_data_api` | Redis hot keys | REST, WebSocket, static dashboard |
+
+### MVP Stateful Streaming
+
+The Flink job under `services/stream-processor/flink` owns:
+
+- top-of-book, spread, and abnormal spread alerts
+- rolling 1-second OHLCV bars and VWAP
+- rolling volume, VWAP, and volatility metrics
+- Redis hot-state writes with stable TTLs
+- checkpointing and fixed-delay restart behavior
+
+Run the Flink profile with `./scripts/run-mvp-flink.sh`.
 
 ## Cold Path
 
@@ -91,6 +103,7 @@ Structured tool contracts are documented in `contracts/mcp/tools.md`.
 | API latency | REST reads are single Redis lookups per symbol snapshot field. |
 | Replay correctness | Redis state is derivable from canonical Kafka topics. |
 | Dashboard visibility | Watchlist shows bid, ask, spread, VWAP, freshness, and alerts. |
+| MVP benchmark | `scripts/load-test-local.py` records throughput and p95/p99 latency for `/latest/{symbol}`. |
 
 ## Key Boundary
 

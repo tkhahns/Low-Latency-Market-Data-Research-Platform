@@ -18,8 +18,8 @@ The local POC API is backed only by Redis hot state.
   "latest_quote": {},
   "top_of_book": {},
   "bar_1s": {},
+  "metrics": {},
   "freshness": {},
   "alerts": []
 }
 ```
-

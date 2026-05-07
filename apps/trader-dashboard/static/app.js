@@ -10,6 +10,7 @@ function money(value) {
 function render(snapshot) {
   const top = snapshot.top_of_book || {};
   const bar = snapshot.bar_1s || {};
+  const metrics = snapshot.metrics || {};
   const fresh = snapshot.freshness || {};
   const alert = (snapshot.alerts || [])[0];
   const status = fresh.status || "pending";
@@ -25,7 +26,9 @@ function render(snapshot) {
       <div class="row"><span class="label">Bid</span><span class="value">${money(top.bid_price)} x ${top.bid_size ?? "-"}</span></div>
       <div class="row"><span class="label">Ask</span><span class="value">${money(top.ask_price)} x ${top.ask_size ?? "-"}</span></div>
       <div class="row"><span class="label">Spread</span><span class="value">${money(top.spread)}</span></div>
+      <div class="row"><span class="label">Volume</span><span class="value">${bar.volume ?? "-"}</span></div>
       <div class="row"><span class="label">1s VWAP</span><span class="value">${money(bar.vwap)}</span></div>
+      <div class="row"><span class="label">Volatility</span><span class="value">${metrics.volatility_bps ?? "-"} bps</span></div>
       <div class="row"><span class="label">Freshness</span><span class="value">${fresh.freshness_lag_ms ?? "-"} ms</span></div>
       ${alert ? `<div class="alerts">${alert.severity}: ${alert.message}</div>` : ""}
     </article>

@@ -77,6 +77,7 @@ def test_derived_event_schemas_accept_poc_outputs():
 
     top, _ = state.quote_to_top_of_book(quote)
     bar = state.trade_to_bar(trade)
+    metrics = state.trade_to_metrics(trade)
     alert = quality_alert(
         symbol="AAPL",
         exchange="XNAS",
@@ -89,5 +90,5 @@ def test_derived_event_schemas_accept_poc_outputs():
 
     validate(top, load_schema("top-of-book-event.v1.schema.json"))
     validate(bar, load_schema("bar-1s-event.v1.schema.json"))
+    validate(metrics, load_schema("rolling-metrics-event.v1.schema.json"))
     validate(alert, load_schema("quality-alert-event.v1.schema.json"))
-

@@ -20,6 +20,7 @@ Contracts are versioned before code is written. Producers and consumers should d
 | `market.quotes.v1` | Feed handler / stream processor | Flink jobs, bronze writer | Quote events after validation. |
 | `market.state.top_of_book.v1` | Flink | API, monitoring, lakehouse | Current best bid/ask state. |
 | `market.bars.1s.v1` | Flink | API, lakehouse | Rolling one-second bars. |
+| `market.metrics.rolling.v1` | Flink | API, lakehouse | Rolling volume, VWAP, and volatility features. |
 | `market.quality.alerts.v1` | Flink | API, MCP tools, observability | Sequence gaps, stale symbols, abnormal spreads. |
 
 ## Schema Location
@@ -30,6 +31,7 @@ JSON schemas live under `contracts/events`:
 - `quote-event.v1.schema.json`
 - `top-of-book-event.v1.schema.json`
 - `bar-1s-event.v1.schema.json`
+- `rolling-metrics-event.v1.schema.json`
 - `quality-alert-event.v1.schema.json`
 - `market-event.v1.schema.json`
 
@@ -42,6 +44,7 @@ Redis keys are documented in `contracts/redis/keys.md`. The API reads only these
 - `md:latest_quote:{SYMBOL}`
 - `md:top_of_book:{SYMBOL}`
 - `md:bar:1s:{SYMBOL}`
+- `md:metrics:{SYMBOL}`
 - `md:freshness:{SYMBOL}`
 - `md:alerts:{SYMBOL}`
 - `md:symbols:active`

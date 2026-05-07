@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/contracts/events/rolling-metrics-event.v1.schema.json",
+  "title": "RollingMetricsEventV1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "event_type",
+    "symbol",
+    "exchange",
+    "event_time",
+    "ingest_time",
+    "sequence_number",
+    "sample_count",
+    "rolling_volume",
+    "rolling_vwap",
+    "volatility_bps"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "event_type": { "const": "rolling_metrics" },
+    "symbol": { "type": "string" },
+    "exchange": { "type": "string" },
+    "event_time": { "type": "string", "format": "date-time" },
+    "ingest_time": { "type": "string", "format": "date-time" },
+    "sequence_number": { "type": "integer", "minimum": 0 },
+    "sample_count": { "type": "integer", "minimum": 0 },
+    "rolling_volume": { "type": "integer", "minimum": 0 },
+    "rolling_vwap": { "type": "number", "exclusiveMinimum": 0 },
+    "volatility_bps": { "type": "number", "minimum": 0 }
+  },
+  "additionalProperties": false
+}

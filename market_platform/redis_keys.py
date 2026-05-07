@@ -14,10 +14,13 @@ def freshness(symbol: str) -> str:
     return f"md:freshness:{symbol.upper()}"
 
 
+def metrics(symbol: str) -> str:
+    return f"md:metrics:{symbol.upper()}"
+
+
 def alerts(symbol: str) -> str:
     return f"md:alerts:{symbol.upper()}"
 
 
 def active_symbols() -> str:
     return "md:symbols:active"
-
