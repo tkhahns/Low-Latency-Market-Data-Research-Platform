@@ -26,3 +26,16 @@
 - Redis state divergence from replayed Delta history.
 - Databricks job failure.
 - Dashboard or API websocket degradation.
+
+## Agentic Ops Evidence
+
+The MCP ops server grounds diagnostics in:
+
+- Redis hot state and alerts.
+- Kafka/Delta topic and table contracts.
+- Lakehouse table metadata.
+- Runbooks in `docs/runbooks`.
+- Incident notes in `docs/incidents`.
+- Obsidian vault notes indexed through `market_platform.tools.index_obsidian`.
+
+Tool calls are dry-run or read-only in v1 and are audited with caller, parameters, result status, and duration.

@@ -29,7 +29,17 @@ The current coding environment does not provide `docker` or `mvn`, so the live s
 Verified locally through `.venv`:
 
 ```text
-tests/unit + tests/integration: 8 passed
+tests/unit + tests/integration: 23 passed
 ```
 
 Record real benchmark output here after running the stack on a Docker-enabled machine.
+
+## Resume Claim Status
+
+The architecture now contains Kafka-compatible ingestion, Flink MVP code, Redis hot serving, Delta Lake cold-path jobs, WebSocket APIs, and Obsidian-backed RAG/MCP tooling. The following metrics are not yet proven in this environment:
+
+- `50k+ events/sec`
+- `sub-100ms p95` end-to-end latency
+- `65%` tick-to-signal latency reduction
+
+Those claims require a Docker/Maven/Databricks-capable benchmark run with before/after measurements for the Python fallback versus Flink/Redis optimized path.

@@ -183,6 +183,27 @@ databricks bundle validate -t dev
 databricks bundle deploy -t dev
 ```
 
+## Agentic Ops And Obsidian RAG
+
+Iteration 4 adds a read-only MCP-style ops layer with RAG evidence over repo docs and Obsidian notes.
+
+Start the ops server:
+
+```bash
+.venv/bin/python -m market_platform.services.mcp_ops_server
+```
+
+Index an Obsidian vault and repo docs:
+
+```bash
+.venv/bin/python -m market_platform.tools.index_obsidian ~/ObsidianVault --source-type obsidian --json-store var/rag/vector-store.json
+.venv/bin/python -m market_platform.tools.index_obsidian docs contracts lakehouse --source-type docs --json-store var/rag/vector-store.json
+```
+
+The production-shaped vector store is Postgres + pgvector using `infra/postgres/pgvector.sql`. Tools include freshness checks, sequence-gap explanations, replay dry-runs, live-vs-replay comparison, incident summaries, and lineage lookup.
+
+More examples are in `docs/mcp-examples.md` and `docs/obsidian-rag.md`.
+
 ## Positioning
 
 This is a data platform project, not a trading strategy project. It shows quant data infrastructure skills across streaming, lakehouse design, observability, replay, and controlled agentic operations.

@@ -40,6 +40,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./postgres/pgvector.sql:/docker-entrypoint-initdb.d/001-pgvector.sql:ro
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
@@ -119,6 +120,22 @@ services:
       - "8000:8000"
     depends_on:
       - redis
+    restart: unless-stopped
+
+  mcp-ops-server:
+    build:
+      context: ..
+      dockerfile: infra/python-service.Dockerfile
+    command: ["python", "-m", "market_platform.services.mcp_ops_server"]
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      RAG_POSTGRES_DSN: postgresql://market_ops:market_ops@postgres:5432/market_ops
+      MCP_AUDIT_LOG: /app/var/audit/mcp-tools.jsonl
+    ports:
+      - "8010:8010"
+    depends_on:
+      - redis
+      - postgres
     restart: unless-stopped
 
   feed-simulator:
