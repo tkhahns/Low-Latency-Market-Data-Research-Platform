@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: market-platform-config
+  namespace: market-data
+data:
+  KAFKA_BOOTSTRAP_SERVERS: confluent-or-redpanda-bootstrap:9092
+  REDIS_URL: redis://managed-redis-private-ip:6379/0
+  LAKEHOUSE_BASE_PATH: dbfs:/prod/low_latency_market_data_platform/delta
+  LAKEHOUSE_CHECKPOINT_PATH: dbfs:/prod/low_latency_market_data_platform/checkpoints

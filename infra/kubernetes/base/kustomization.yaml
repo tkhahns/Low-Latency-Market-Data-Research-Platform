@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: market-data
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secret-template.yaml
+  - deployments.yaml
+  - services.yaml
+images:
+  - name: us-docker.pkg.dev/PROJECT_ID/market-data/feed-simulator
+    newName: us-docker.pkg.dev/PROJECT_ID/market-data/feed-simulator
+    newTag: latest
+  - name: us-docker.pkg.dev/PROJECT_ID/market-data/feed-handler
+    newName: us-docker.pkg.dev/PROJECT_ID/market-data/feed-handler
+    newTag: latest
+  - name: us-docker.pkg.dev/PROJECT_ID/market-data/stream-processor
+    newName: us-docker.pkg.dev/PROJECT_ID/market-data/stream-processor
+    newTag: latest
+  - name: us-docker.pkg.dev/PROJECT_ID/market-data/market-data-api
+    newName: us-docker.pkg.dev/PROJECT_ID/market-data/market-data-api
+    newTag: latest
+  - name: us-docker.pkg.dev/PROJECT_ID/market-data/mcp-ops-server
+    newName: us-docker.pkg.dev/PROJECT_ID/market-data/mcp-ops-server
+    newTag: latest

@@ -1,0 +1,55 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  python:
+    name: python-tests-contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install -e '.[dev]'
+      - name: Lint
+        run: python -m ruff check .
+      - name: Compile
+        run: PYTHONPYCACHEPREFIX=/tmp/pycache python -m compileall -q market_platform tests lakehouse/jobs
+      - name: Tests
+        run: python -m pytest -q
+      - name: Validate production artifacts
+        run: python scripts/validate-production-artifacts.py
+
+  docker:
+    name: docker-builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate compose config
+        run: docker compose -f infra/docker-compose.yml config
+      - name: Build Python runtime image
+        run: docker build -f infra/python-service.Dockerfile -t llmdp-python-service:ci .
+      - name: Build Flink runtime image
+        run: docker build -f infra/flink-job.Dockerfile -t llmdp-flink-job:ci .
+
+  flink:
+    name: flink-maven-package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - name: Package Flink job
+        run: mvn -f services/stream-processor/flink/pom.xml -DskipTests package

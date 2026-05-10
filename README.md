@@ -204,6 +204,26 @@ The production-shaped vector store is Postgres + pgvector using `infra/postgres/
 
 More examples are in `docs/mcp-examples.md` and `docs/obsidian-rag.md`.
 
+## Production Readiness
+
+Iteration 5 adds production-facing assets:
+
+- GitHub Actions CI for linting, tests, contract/artifact validation, Docker builds, and Flink Maven packaging.
+- Container image mapping in `infra/images`.
+- Kubernetes Kustomize manifests in `infra/kubernetes`.
+- GCP deployment target and Terraform scaffolding in `infra/gcp` and `infra/terraform`.
+- Secret management guidance in `infra/secrets`.
+- Grafana dashboard, alert rules, structured log schema, and OpenTelemetry collector config in `observability`.
+- Runbooks and backup/recovery docs under `docs`.
+
+Validate production artifacts locally:
+
+```bash
+.venv/bin/python scripts/validate-production-artifacts.py
+```
+
+Full production status and remaining runtime gates are tracked in `docs/production-readiness.md`.
+
 ## Positioning
 
 This is a data platform project, not a trading strategy project. It shows quant data infrastructure skills across streaming, lakehouse design, observability, replay, and controlled agentic operations.

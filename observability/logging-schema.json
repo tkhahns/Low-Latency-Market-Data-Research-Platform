@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StructuredLogV1",
+  "type": "object",
+  "required": ["timestamp", "level", "service", "message"],
+  "properties": {
+    "timestamp": { "type": "string", "format": "date-time" },
+    "level": { "type": "string" },
+    "service": { "type": "string" },
+    "message": { "type": "string" },
+    "symbol": { "type": "string" },
+    "exchange": { "type": "string" },
+    "trace_id": { "type": "string" },
+    "span_id": { "type": "string" },
+    "event_type": { "type": "string" },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "status": { "type": "string" }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,51 @@
+groups:
+  - name: market-data-health
+    rules:
+      - alert: SymbolFreshnessStale
+        expr: max(market_symbol_freshness_lag_ms) by (symbol) > 2000
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Market data symbol freshness is stale"
+          runbook: "docs/runbooks/stale-symbol.md"
+      - alert: SequenceGapDetected
+        expr: sum(increase(market_sequence_gaps_total[5m])) by (symbol, exchange) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Sequence gap detected"
+          runbook: "docs/runbooks/sequence-gap.md"
+      - alert: FlinkCheckpointFailures
+        expr: sum(increase(flink_jobmanager_job_numberOfFailedCheckpoints[10m])) by (job_name) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Flink checkpoints are failing"
+          runbook: "docs/runbooks/flink-failure.md"
+      - alert: RedisDivergence
+        expr: sum(increase(market_live_vs_replay_divergence_total[15m])) by (symbol) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis hot state diverges from replay"
+          runbook: "docs/runbooks/redis-divergence.md"
+      - alert: DatabricksJobFailure
+        expr: sum(increase(databricks_job_failures_total[15m])) by (job_name) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Databricks lakehouse job failed"
+          runbook: "docs/runbooks/databricks-job-failure.md"
+      - alert: McpToolFailure
+        expr: sum(increase(mcp_tool_calls_total{status="error"}[5m])) by (tool_name) > 3
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "MCP tool error rate is elevated"
+          runbook: "docs/runbooks/mcp-tool-failure.md"

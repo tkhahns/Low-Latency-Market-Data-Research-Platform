@@ -1,0 +1,182 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: feed-simulator
+  namespace: market-data
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: feed-simulator
+  template:
+    metadata:
+      labels:
+        app: feed-simulator
+    spec:
+      containers:
+        - name: feed-simulator
+          image: us-docker.pkg.dev/PROJECT_ID/market-data/feed-simulator:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "market_platform.services.feed_simulator"]
+          envFrom:
+            - configMapRef:
+                name: market-platform-config
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: feed-handler
+  namespace: market-data
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: feed-handler
+  template:
+    metadata:
+      labels:
+        app: feed-handler
+    spec:
+      containers:
+        - name: feed-handler
+          image: us-docker.pkg.dev/PROJECT_ID/market-data/feed-handler:latest
+          command: ["python", "-m", "market_platform.services.feed_handler"]
+          envFrom:
+            - configMapRef:
+                name: market-platform-config
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stream-processor
+  namespace: market-data
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stream-processor
+  template:
+    metadata:
+      labels:
+        app: stream-processor
+    spec:
+      containers:
+        - name: stream-processor
+          image: us-docker.pkg.dev/PROJECT_ID/market-data/stream-processor:latest
+          command: ["python", "-m", "market_platform.services.stream_processor"]
+          envFrom:
+            - configMapRef:
+                name: market-platform-config
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: market-data-api
+  namespace: market-data
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: market-data-api
+  template:
+    metadata:
+      labels:
+        app: market-data-api
+    spec:
+      containers:
+        - name: market-data-api
+          image: us-docker.pkg.dev/PROJECT_ID/market-data/market-data-api:latest
+          command: ["python", "-m", "market_platform.services.market_data_api"]
+          ports:
+            - containerPort: 8000
+              name: http
+          envFrom:
+            - configMapRef:
+                name: market-platform-config
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-ops-server
+  namespace: market-data
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-ops-server
+  template:
+    metadata:
+      labels:
+        app: mcp-ops-server
+    spec:
+      containers:
+        - name: mcp-ops-server
+          image: us-docker.pkg.dev/PROJECT_ID/market-data/mcp-ops-server:latest
+          command: ["python", "-m", "market_platform.services.mcp_ops_server"]
+          ports:
+            - containerPort: 8010
+              name: http
+          envFrom:
+            - configMapRef:
+                name: market-platform-config
+            - secretRef:
+                name: market-platform-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi

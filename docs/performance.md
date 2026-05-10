@@ -43,3 +43,12 @@ The architecture now contains Kafka-compatible ingestion, Flink MVP code, Redis 
 - `65%` tick-to-signal latency reduction
 
 Those claims require a Docker/Maven/Databricks-capable benchmark run with before/after measurements for the Python fallback versus Flink/Redis optimized path.
+
+## Benchmark Matrix
+
+| Benchmark | Command | Records |
+| --- | --- | --- |
+| API latency | `.venv/bin/python scripts/load-test-local.py --symbol AAPL --requests 500 --concurrency 25` | throughput, mean, p95, p99, failures |
+| Docker compose smoke | `docker compose -f infra/docker-compose.yml config && ./scripts/run-local-demo.sh` | service health, dashboard availability |
+| Flink package | `mvn -f services/stream-processor/flink/pom.xml -DskipTests package` | build success, artifact size |
+| Production artifacts | `.venv/bin/python scripts/validate-production-artifacts.py` | CI/deploy/observability doc validity |

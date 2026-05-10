@@ -1,0 +1,75 @@
+{
+  "title": "Market Data Platform Health",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["market-data", "streaming", "lakehouse"],
+  "timezone": "utc",
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Feed Ingress Rate",
+      "targets": [
+        {
+          "expr": "sum(rate(market_feed_events_total[1m])) by (event_type)",
+          "legendFormat": "{{event_type}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "API p95 Latency",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_duration_seconds_bucket{service_name=\"market-data-api\"}[5m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Symbol Freshness Lag",
+      "targets": [
+        {
+          "expr": "max(market_symbol_freshness_lag_ms) by (symbol)",
+          "legendFormat": "{{symbol}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Sequence Gaps",
+      "targets": [
+        {
+          "expr": "sum(increase(market_sequence_gaps_total[5m])) by (symbol, exchange)",
+          "legendFormat": "{{symbol}} {{exchange}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Flink Checkpoint Failures",
+      "targets": [
+        {
+          "expr": "sum(increase(flink_jobmanager_job_numberOfFailedCheckpoints[5m])) by (job_name)",
+          "legendFormat": "{{job_name}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "MCP Tool Errors",
+      "targets": [
+        {
+          "expr": "sum(increase(mcp_tool_calls_total{status=\"error\"}[5m])) by (tool_name)",
+          "legendFormat": "{{tool_name}}"
+        }
+      ]
+    }
+  ]
+}

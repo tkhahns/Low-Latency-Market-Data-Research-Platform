@@ -1,0 +1,26 @@
+version: 1
+metrics:
+  - name: market_feed_events_total
+    type: counter
+    labels: [event_type, symbol, exchange]
+    description: Number of feed events observed.
+  - name: market_sequence_gaps_total
+    type: counter
+    labels: [symbol, exchange]
+    description: Number of detected sequence gaps.
+  - name: market_symbol_freshness_lag_ms
+    type: gauge
+    labels: [symbol, exchange]
+    description: Freshness lag for hot Redis state.
+  - name: market_live_vs_replay_divergence_total
+    type: counter
+    labels: [symbol]
+    description: Number of live Redis versus replay discrepancies.
+  - name: http_server_duration_seconds
+    type: histogram
+    labels: [service_name, route, method, status_code]
+    description: API request latency.
+  - name: mcp_tool_calls_total
+    type: counter
+    labels: [tool_name, status]
+    description: MCP tool call count by result status.
