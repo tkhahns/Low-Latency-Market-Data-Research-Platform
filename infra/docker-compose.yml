@@ -151,5 +151,25 @@ services:
       - redpanda
     restart: unless-stopped
 
+  databento-feed:
+    profiles: ["databento"]
+    build:
+      context: ..
+      dockerfile: infra/python-service.Dockerfile
+    command: ["python", "-m", "market_platform.services.databento_feed"]
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      DATABENTO_API_KEY: ${DATABENTO_API_KEY:-}
+      DATABENTO_DATASET: ${DATABENTO_DATASET:-GLBX.MDP3}
+      DATABENTO_SYMBOLS: ${DATABENTO_SYMBOLS:-ES.FUT,NQ.FUT}
+      DATABENTO_SCHEMAS: ${DATABENTO_SCHEMAS:-mbp-1,trades}
+      DATABENTO_STYPE_IN: ${DATABENTO_STYPE_IN:-parent}
+      DATABENTO_REPLAY_START: ${DATABENTO_REPLAY_START:-}
+      DATABENTO_TIMEOUT_SECONDS: ${DATABENTO_TIMEOUT_SECONDS:-}
+      EXCHANGE: ${EXCHANGE:-GLBX}
+    depends_on:
+      - redpanda
+    restart: unless-stopped
+
 volumes:
   postgres-data:

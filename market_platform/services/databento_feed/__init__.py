@@ -1,0 +1,1 @@
+"""Databento feed adapter service."""

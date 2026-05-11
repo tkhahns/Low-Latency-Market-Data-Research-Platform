@@ -109,6 +109,18 @@ feed simulator -> feed handler -> Redpanda topics -> stream processor -> Redis -
 
 The simulator injects occasional sequence gaps. The feed handler publishes those as `market.quality.alerts.v1`; the stream processor stores recent alerts in Redis so the dashboard can surface them.
 
+### Databento Real-Feed Demo
+
+The current default data source is synthetic. To drive the same dashboard with Databento, set `DATABENTO_API_KEY` and run the Databento profile:
+
+```bash
+export DATABENTO_API_KEY='db-...'
+export DATABENTO_TIMEOUT_SECONDS='120'
+docker compose -f infra/docker-compose.yml --profile databento up --build redpanda redis feed-handler stream-processor market-data-api databento-feed
+```
+
+Open `http://localhost:8000`. The full setup and low-cost replay options are in `docs/databento-demo.md`.
+
 Stop the stack:
 
 ```bash
