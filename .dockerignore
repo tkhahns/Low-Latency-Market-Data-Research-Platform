@@ -7,6 +7,7 @@ __pycache__
 *.egg-info
 .pytest_cache
 .ruff_cache
+.m2
 var
 node_modules
 target

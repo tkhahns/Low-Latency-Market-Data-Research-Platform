@@ -101,6 +101,14 @@ Then open:
 - API health: `http://localhost:8000/health`
 - Latest symbol snapshot: `http://localhost:8000/latest/AAPL`
 
+If Docker or Redis is not available and you only need to view the dashboard UI with seeded hot-state data:
+
+```bash
+MARKET_DATA_DEMO_MODE=1 .venv/bin/python -m market_platform.services.market_data_api
+```
+
+Then open `http://localhost:8000`.
+
 Local flow:
 
 ```text
@@ -169,6 +177,45 @@ Run the local API load test after the stack is live:
 ```
 
 Benchmark setup and current known limits are tracked in `docs/performance.md`.
+
+## Latest Local Validation
+
+Last local validation ran against the Docker Compose stack with Redpanda, Redis, feed simulator, feed handler, stream processor, and market data API.
+
+Test results:
+
+- Python tests: `31 passed`
+- Ruff: passed
+- Production artifact validator: `production-artifacts-ok`
+- Local API load test against the running dashboard:
+  - `500` requests
+  - `0` failures
+  - `1444.59` requests/sec
+  - mean latency: `16.95 ms`
+  - p95 latency: `52.46 ms`
+  - p99 latency: `65.24 ms`
+- Maven/Flink build: passed with Java 17
+- Flink Docker image build: passed
+- Kubernetes manifest render: passed
+- Terraform init and validate: passed
+
+Validated Redpanda topics:
+
+- `feed.synthetic.raw.v1`
+- `market.raw.v1`
+- `market.trades.v1`
+- `market.quotes.v1`
+- `market.state.top_of_book.v1`
+- `market.bars.1s.v1`
+- `market.metrics.rolling.v1`
+- `market.quality.alerts.v1`
+
+Validation-driven updates:
+
+- Added `MARKET_DATA_DEMO_MODE=1` so the dashboard can render seeded hot-state data before Docker or Redis is available.
+- Added test coverage for dashboard demo mode.
+- Added `.m2/` and `.terraform/` to ignore rules so local Maven and Terraform caches do not pollute Git or Docker builds.
+- Terraform generated `infra/terraform/.terraform.lock.hcl`; keep this file committed to pin provider versions for reproducible deploys.
 
 ## Cold Path Lakehouse
 

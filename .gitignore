@@ -16,6 +16,7 @@ venv/
 *.egg-info/
 
 # Java / JVM
+.m2/
 .gradle/
 build/
 target/
@@ -44,3 +45,6 @@ data/replay/
 # Databricks
 .databricks/
 .bundle/
+
+# Terraform
+.terraform/

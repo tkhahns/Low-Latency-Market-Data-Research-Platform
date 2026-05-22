@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from market_platform.redis_keys import active_symbols, alerts, bar_1s, freshness, latest_quote, metrics, top_of_book
 from market_platform.services.market_data_api.app import app
+from market_platform.services.market_data_api.app import demo_redis
 
 
 class FakeRedis:
@@ -104,3 +105,17 @@ def test_dashboard_and_websocket_live_frame_are_served():
     assert frame["channel"] == "live"
     assert frame["symbols"][0]["symbol"] == "AAPL"
     assert frame["symbols"][0]["metrics"]["sample_count"] == 3
+
+
+def test_demo_mode_seed_contains_market_dashboard_state():
+    app.state.redis = demo_redis()
+    client = TestClient(app)
+
+    symbols = client.get("/symbols").json()["symbols"]
+    assert "ES.FUT" in symbols
+    assert "NQ.FUT" in symbols
+
+    latest = client.get("/latest/ES.FUT").json()
+    assert latest["top_of_book"]["exchange"] == "GLBX"
+    assert latest["bar_1s"]["volume"] > 0
+    assert latest["freshness"]["status"] == "fresh"
