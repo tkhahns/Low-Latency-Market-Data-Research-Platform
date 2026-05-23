@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from aiokafka import AIOKafkaProducer
 
-from market_platform.config import EXCHANGE, KAFKA_BOOTSTRAP_SERVERS, SYMBOLS
+from market_platform.config import EXCHANGE, KAFKA_BOOTSTRAP_SERVERS, SIMULATOR_SEQUENCE_GAP_PROBABILITY, SYMBOLS
 from market_platform.serde import dumps
 from market_platform.time import utc_now_iso
 from market_platform.topics import SYNTHETIC_RAW_TOPIC
@@ -21,7 +21,7 @@ async def main() -> None:
         while True:
             for symbol in SYMBOLS:
                 sequences[symbol] += 1
-                if random.random() < 0.03:
+                if random.random() < SIMULATOR_SEQUENCE_GAP_PROBABILITY:
                     sequences[symbol] += 1
 
                 prices[symbol] = max(1.0, prices[symbol] + random.uniform(-0.25, 0.25))

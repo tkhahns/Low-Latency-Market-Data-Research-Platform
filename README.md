@@ -115,7 +115,13 @@ Local flow:
 feed simulator -> feed handler -> Redpanda topics -> stream processor -> Redis -> FastAPI/WebSocket -> dashboard
 ```
 
-The simulator injects occasional sequence gaps. The feed handler publishes those as `market.quality.alerts.v1`; the stream processor stores recent alerts in Redis so the dashboard can surface them.
+### Demo Snapshot
+
+![Dashboard demo](docs/assets/dashboard-demo.png)
+
+The simulator runs clean by default. To demo data-quality handling, set `SIMULATOR_SEQUENCE_GAP_PROBABILITY`, for example `SIMULATOR_SEQUENCE_GAP_PROBABILITY=0.03`, before starting the stack. The feed handler publishes detected gaps as `market.quality.alerts.v1`; the stream processor stores recent alerts in Redis so the dashboard can surface them.
+
+The feed handler treats a large backward sequence jump as a feed-session restart instead of a data-quality error. The default reset threshold is `SEQUENCE_RESTART_RESET_THRESHOLD=1000`.
 
 ### Databento Real-Feed Demo
 

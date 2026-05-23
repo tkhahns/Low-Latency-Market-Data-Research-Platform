@@ -11,6 +11,7 @@ from .time import utc_now_iso
 @dataclass
 class SequenceTracker:
     last_seen: dict[tuple[str, str], int] = field(default_factory=dict)
+    restart_reset_threshold: int = 0
 
     def check(self, event: dict[str, Any]) -> Optional[dict[str, Any]]:
         key = (event["symbol"], event["exchange"])
@@ -19,6 +20,8 @@ class SequenceTracker:
         self.last_seen[key] = max(current, previous or current)
 
         if previous is None or current == previous + 1:
+            return None
+        if self.restart_reset_threshold > 0 and current < previous and previous - current >= self.restart_reset_threshold:
             return None
         if current <= previous:
             return quality_alert(

@@ -5,7 +5,7 @@ import logging
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
-from market_platform.config import KAFKA_BOOTSTRAP_SERVERS
+from market_platform.config import KAFKA_BOOTSTRAP_SERVERS, SEQUENCE_RESTART_RESET_THRESHOLD
 from market_platform.events import SequenceTracker, canonical_quote, canonical_trade, quality_alert
 from market_platform.serde import dumps, loads
 from market_platform.time import utc_now_iso
@@ -61,7 +61,7 @@ async def main() -> None:
         enable_auto_commit=True,
     )
     producer = AIOKafkaProducer(bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS)
-    tracker = SequenceTracker()
+    tracker = SequenceTracker(restart_reset_threshold=SEQUENCE_RESTART_RESET_THRESHOLD)
 
     await consumer.start()
     await producer.start()

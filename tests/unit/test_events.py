@@ -47,3 +47,15 @@ def test_sequence_tracker_detects_gap():
     assert alert["expected_sequence"] == 2
     assert alert["observed_sequence"] == 3
 
+
+def test_sequence_tracker_allows_large_sequence_restart():
+    tracker = SequenceTracker(restart_reset_threshold=1000)
+    first = {
+        "symbol": "AAPL",
+        "exchange": "XNAS",
+        "sequence_number": 10000,
+    }
+    restart = {**first, "sequence_number": 1}
+
+    assert tracker.check(first) is None
+    assert tracker.check(restart) is None
