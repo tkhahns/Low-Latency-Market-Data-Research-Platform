@@ -11,14 +11,14 @@ The ops server exposes structured diagnostic tools through HTTP endpoints that m
 ## Index Obsidian And Repo Docs
 
 ```bash
-.venv/bin/python -m market_platform.tools.index_obsidian ~/ObsidianVault --source-type obsidian --json-store var/rag/vector-store.json
+.venv/bin/python -m market_platform.tools.index_obsidian "obsidian/Market Data Research Vault" --source-type obsidian --json-store var/rag/vector-store.json
 .venv/bin/python -m market_platform.tools.index_obsidian docs contracts lakehouse --source-type docs --json-store var/rag/vector-store.json
 ```
 
 For pgvector:
 
 ```bash
-.venv/bin/python -m market_platform.tools.index_obsidian ~/ObsidianVault --source-type obsidian --postgres-dsn postgresql://market_ops:market_ops@localhost:5432/market_ops
+.venv/bin/python -m market_platform.tools.index_obsidian "obsidian/Market Data Research Vault" --source-type obsidian --postgres-dsn postgresql://market_ops:market_ops@localhost:5432/market_ops
 .venv/bin/python -m market_platform.tools.index_obsidian docs contracts lakehouse --source-type docs --postgres-dsn postgresql://market_ops:market_ops@localhost:5432/market_ops
 ```
 

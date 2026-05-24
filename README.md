@@ -261,9 +261,11 @@ Start the ops server:
 Index an Obsidian vault and repo docs:
 
 ```bash
-.venv/bin/python -m market_platform.tools.index_obsidian ~/ObsidianVault --source-type obsidian --json-store var/rag/vector-store.json
+.venv/bin/python -m market_platform.tools.index_obsidian "obsidian/Market Data Research Vault" --source-type obsidian --json-store var/rag/vector-store.json
 .venv/bin/python -m market_platform.tools.index_obsidian docs contracts lakehouse --source-type docs --json-store var/rag/vector-store.json
 ```
+
+The dashboard includes an `Open Obsidian` action wired to the repo-local vault at `obsidian/Market Data Research Vault`.
 
 The production-shaped vector store is Postgres + pgvector using `infra/postgres/pgvector.sql`. Tools include freshness checks, sequence-gap explanations, replay dry-runs, live-vs-replay comparison, incident summaries, and lineage lookup.
 

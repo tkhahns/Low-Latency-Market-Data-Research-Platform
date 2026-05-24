@@ -38,6 +38,7 @@ coverage/
 # Logs / generated data
 logs/
 tmp/
+var/
 data/raw/
 data/checkpoints/
 data/replay/

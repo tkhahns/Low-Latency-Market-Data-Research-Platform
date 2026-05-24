@@ -38,13 +38,13 @@ The HTTP endpoints are intentionally thin wrappers around structured tool functi
 ## Obsidian Indexing
 
 ```bash
-.venv/bin/python -m market_platform.tools.index_obsidian ~/ObsidianVault docs contracts lakehouse --json-store var/rag/vector-store.json
+.venv/bin/python -m market_platform.tools.index_obsidian "obsidian/Market Data Research Vault" docs contracts lakehouse --json-store var/rag/vector-store.json
 ```
 
 For Postgres + pgvector:
 
 ```bash
-.venv/bin/python -m market_platform.tools.index_obsidian ~/ObsidianVault --postgres-dsn postgresql://market_ops:market_ops@localhost:5432/market_ops
+.venv/bin/python -m market_platform.tools.index_obsidian "obsidian/Market Data Research Vault" --postgres-dsn postgresql://market_ops:market_ops@localhost:5432/market_ops
 ```
 
 The pgvector schema is `infra/postgres/pgvector.sql`.

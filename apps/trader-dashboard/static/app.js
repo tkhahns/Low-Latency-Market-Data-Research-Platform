@@ -1,6 +1,7 @@
 const watchlist = document.querySelector("#watchlist");
 const connection = document.querySelector("#connection");
 const symbolCount = document.querySelector("#symbol-count");
+const obsidianLink = document.querySelector("#obsidian-link");
 
 function money(value) {
   if (value === undefined || value === null) return "-";
@@ -35,6 +36,19 @@ function render(snapshot) {
   `;
 }
 
+async function loadObsidianProject() {
+  if (!obsidianLink) return;
+  try {
+    const response = await fetch("/obsidian/project");
+    if (!response.ok) return;
+    const project = await response.json();
+    obsidianLink.href = project.obsidian_uri;
+    obsidianLink.title = project.vault_path;
+  } catch {
+    obsidianLink.href = "/obsidian/project";
+  }
+}
+
 function connect() {
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
   const socket = new WebSocket(`${protocol}://${window.location.host}/ws/live`);
@@ -55,4 +69,5 @@ function connect() {
   };
 }
 
+loadObsidianProject();
 connect();

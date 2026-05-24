@@ -98,6 +98,7 @@ def test_dashboard_and_websocket_live_frame_are_served():
     dashboard = client.get("/")
     assert dashboard.status_code == 200
     assert "Market Data" in dashboard.text
+    assert "Open Obsidian" in dashboard.text
 
     with client.websocket_connect("/ws/live") as websocket:
         frame = websocket.receive_json()
@@ -105,6 +106,18 @@ def test_dashboard_and_websocket_live_frame_are_served():
     assert frame["channel"] == "live"
     assert frame["symbols"][0]["symbol"] == "AAPL"
     assert frame["symbols"][0]["metrics"]["sample_count"] == 3
+
+
+def test_obsidian_project_endpoint_points_to_repo_vault():
+    install_fake_redis()
+    client = TestClient(app)
+
+    project = client.get("/obsidian/project").json()
+
+    assert project["vault_name"] == "Market Data Research Vault"
+    assert project["source_type"] == "obsidian"
+    assert project["home_note"].endswith("obsidian/Market Data Research Vault/Home.md")
+    assert project["obsidian_uri"].startswith("obsidian://open?path=")
 
 
 def test_demo_mode_seed_contains_market_dashboard_state():

@@ -2,6 +2,8 @@
 
 The agentic ops path can index an Obsidian vault into the project vector store so diagnostics can cite project notes, design decisions, runbooks, and market research notes.
 
+The repo includes a concrete Obsidian vault at `obsidian/Market Data Research Vault`. The dashboard exposes this vault through its `Open Obsidian` action, which points to the vault `Home.md` note with an `obsidian://` URI.
+
 ## Supported Sources
 
 - Obsidian vault markdown files.
@@ -14,13 +16,13 @@ The agentic ops path can index an Obsidian vault into the project vector store s
 Use the repo virtual environment:
 
 ```bash
-.venv/bin/python -m market_platform.tools.index_obsidian /path/to/ObsidianVault --json-store var/rag/vector-store.json
+.venv/bin/python -m market_platform.tools.index_obsidian "obsidian/Market Data Research Vault" --json-store var/rag/vector-store.json
 ```
 
 The local JSON store is deterministic and useful for demos/tests. For Postgres + pgvector:
 
 ```bash
-.venv/bin/python -m market_platform.tools.index_obsidian /path/to/ObsidianVault --postgres-dsn postgresql://market_ops:market_ops@localhost:5432/market_ops
+.venv/bin/python -m market_platform.tools.index_obsidian "obsidian/Market Data Research Vault" --postgres-dsn postgresql://market_ops:market_ops@localhost:5432/market_ops
 ```
 
 The pgvector schema is `infra/postgres/pgvector.sql`.

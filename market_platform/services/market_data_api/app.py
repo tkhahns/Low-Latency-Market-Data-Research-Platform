@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 from typing import Any, Optional
+from urllib.parse import quote
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
@@ -16,6 +17,8 @@ from market_platform.redis_keys import active_symbols, alerts, bar_1s, freshness
 from market_platform.time import utc_now_iso
 
 STATIC_DIR = Path(__file__).resolve().parents[3] / "apps" / "trader-dashboard" / "static"
+OBSIDIAN_VAULT_DIR = Path(__file__).resolve().parents[3] / "obsidian" / "Market Data Research Vault"
+OBSIDIAN_HOME_NOTE = OBSIDIAN_VAULT_DIR / "Home.md"
 
 app = FastAPI(title="Market Data API", version="0.1.0")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -181,6 +184,17 @@ async def health() -> dict[str, str]:
 async def symbols() -> dict[str, list[str]]:
     members = await app.state.redis.smembers(active_symbols())
     return {"symbols": sorted(members)}
+
+
+@app.get("/obsidian/project")
+async def obsidian_project() -> dict[str, str]:
+    return {
+        "vault_name": OBSIDIAN_VAULT_DIR.name,
+        "vault_path": str(OBSIDIAN_VAULT_DIR),
+        "home_note": str(OBSIDIAN_HOME_NOTE),
+        "obsidian_uri": f"obsidian://open?path={quote(str(OBSIDIAN_HOME_NOTE))}",
+        "source_type": "obsidian",
+    }
 
 
 @app.get("/latest/{symbol}")

@@ -61,6 +61,31 @@ p {
   font-size: 22px;
 }
 
+.actions {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.vault-link {
+  display: inline-flex;
+  min-height: 66px;
+  align-items: center;
+  padding: 0 14px;
+  border: 1px solid #2a302e;
+  border-radius: 8px;
+  background: #171b1a;
+  color: #dfe6e2;
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.vault-link:hover {
+  border-color: #3e4a45;
+  background: #1c2220;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -126,9 +151,18 @@ p {
     flex-direction: column;
   }
 
+  .actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .vault-link {
+    min-height: 44px;
+    justify-content: center;
+  }
+
   .shell {
     width: min(100vw - 20px, 1180px);
     padding-top: 18px;
   }
 }
-
