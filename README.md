@@ -279,6 +279,7 @@ Iteration 5 adds production-facing assets:
 - Container image mapping in `infra/images`.
 - Kubernetes Kustomize manifests in `infra/kubernetes`.
 - GCP deployment target and Terraform scaffolding in `infra/gcp` and `infra/terraform`.
+- One-click Vercel hosting for the dashboard + API (with custom-domain setup) in `docs/vercel-deployment.md`.
 - Secret management guidance in `infra/secrets`.
 - Grafana dashboard, alert rules, structured log schema, and OpenTelemetry collector config in `observability`.
 - Runbooks and backup/recovery docs under `docs`.

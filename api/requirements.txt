@@ -1,0 +1,4 @@
+# Dependencies for the Vercel serverless function only (api/index.py).
+# The full local/dev dependency set lives in pyproject.toml.
+fastapi>=0.110.0
+redis>=5.0.0
