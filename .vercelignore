@@ -1,4 +1,4 @@
-# Keep the serverless bundle small: only the API import chain
+# Keep the deployment bundle small: only main.py and its import chain
 # (market_platform/, apps/trader-dashboard/static/, obsidian/) is needed.
 .venv
 .github

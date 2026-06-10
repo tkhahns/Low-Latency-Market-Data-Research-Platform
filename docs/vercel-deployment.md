@@ -30,16 +30,17 @@ once per second. The connection badge shows **“Live (polling)”** in this mod
 
 ## Files that make this work
 
-- `api/index.py` — Vercel entrypoint exporting the FastAPI `app`
-- `api/requirements.txt` — function-only dependencies (`fastapi`, `redis`)
-- `vercel.json` — rewrites all routes to the function
+- `main.py` — root entrypoint exporting the FastAPI `app` (Vercel's FastAPI
+  preset only looks in default locations like a root `main.py`)
+- `requirements.txt` — deployment-only dependencies (`fastapi`, `redis`, `uvicorn`)
+- `vercel.json` — pins the framework to `fastapi`
 - `.vercelignore` — keeps infra/tests/docs out of the bundle
 
 ## Deploy — Option A: Git import (recommended)
 
 1. Go to <https://vercel.com/new> and import `tkhahns/Low-Latency-Market-Data-Research-Platform`.
-2. Framework preset: **Other**. Leave build command and output directory empty —
-   Vercel auto-detects the Python function in `api/`.
+2. Framework preset: **FastAPI** (auto-detected; `vercel.json` pins it). Leave build
+   command and output directory empty.
 3. Under **Environment Variables**, add:
    - `MARKET_DATA_DEMO_MODE` = `1` (demo mode), **or**
    - `REDIS_URL` = your Upstash connection string (live mode)
