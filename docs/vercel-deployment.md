@@ -33,8 +33,12 @@ once per second. The connection badge shows **“Live (polling)”** in this mod
 - `main.py` — root entrypoint exporting the FastAPI `app` (Vercel's FastAPI
   preset only looks in default locations like a root `main.py`)
 - `requirements.txt` — deployment-only dependencies (`fastapi`, `redis`, `uvicorn`)
-- `vercel.json` — pins the framework to `fastapi`
-- `.vercelignore` — keeps infra/tests/docs out of the bundle
+- `vercel.json` — pins the framework to `fastapi` **and overrides `installCommand`**
+  to install from `requirements.txt`. Without the override, Vercel resolves
+  dependencies from `pyproject.toml`, whose full closure (databento → pandas/pyarrow,
+  aiokafka, psycopg) is ~290 MB — over the bundle limit, and the deferred runtime
+  installation crashes the function with `FUNCTION_INVOCATION_FAILED`.
+- `.vercelignore` — keeps infra/tests/docs out of CLI-upload bundles
 
 ## Deploy — Option A: Git import (recommended)
 

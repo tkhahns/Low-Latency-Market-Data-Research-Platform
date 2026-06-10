@@ -49,3 +49,4 @@ data/replay/
 
 # Terraform
 .terraform/
+.vercel

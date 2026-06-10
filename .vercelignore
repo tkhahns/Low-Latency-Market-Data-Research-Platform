@@ -13,3 +13,7 @@ services
 tests
 docs
 PLAN.md
+
+# Vercel must resolve deps from requirements.txt, not the full pyproject closure
+pyproject.toml
+uv.lock
