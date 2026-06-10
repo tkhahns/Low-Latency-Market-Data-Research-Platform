@@ -36,10 +36,10 @@ def test_ci_workflow_covers_python_docker_and_flink():
 def test_kubernetes_manifests_define_runtime_services_and_secrets():
     deployments = [doc for doc in load_yaml_all("infra/kubernetes/base/deployments.yaml") if doc["kind"] == "Deployment"]
     names = {deployment["metadata"]["name"] for deployment in deployments}
-    assert {"feed-simulator", "feed-handler", "stream-processor", "market-data-api", "mcp-ops-server"} <= names
+    assert {"feed-ingestor", "feed-handler", "stream-processor", "market-data-api", "mcp-ops-server"} <= names
 
     services = [doc for doc in load_yaml_all("infra/kubernetes/base/services.yaml") if doc["kind"] == "Service"]
-    assert {service["metadata"]["name"] for service in services} == {"market-data-api", "mcp-ops-server"}
+    assert {"market-data-api", "mcp-ops-server", "feed-ingestor"} <= {service["metadata"]["name"] for service in services}
 
     secret = load_yaml("infra/kubernetes/base/secret-template.yaml")
     assert {"POSTGRES_DSN", "RAG_POSTGRES_DSN", "DATABRICKS_TOKEN", "PROVIDER_API_KEY"} <= set(secret["stringData"])

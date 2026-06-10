@@ -46,6 +46,38 @@ def test_trade_and_quote_schemas_accept_canonical_events():
     validate(quote, load_schema("quote-event.v1.schema.json"))
 
 
+def test_schemas_accept_fractional_crypto_sizes():
+    trade = canonical_trade(
+        {
+            "event_type": "trade",
+            "symbol": "BTC-USD",
+            "exchange": "COINBASE",
+            "event_time": "2026-05-04T00:00:00Z",
+            "sequence_number": 12345,
+            "price": 50000.10,
+            "size": 0.01234567,
+        },
+        ingest_time="2026-05-04T00:00:00.001Z",
+    )
+    quote = canonical_quote(
+        {
+            "event_type": "quote",
+            "symbol": "BTC-USD",
+            "exchange": "COINBASE",
+            "event_time": "2026-05-04T00:00:00Z",
+            "sequence_number": 1,
+            "bid_price": 50000.0,
+            "bid_size": 0.5,
+            "ask_price": 50001.0,
+            "ask_size": 0.3,
+        },
+        ingest_time="2026-05-04T00:00:00.001Z",
+    )
+
+    validate(trade, load_schema("trade-event.v1.schema.json"))
+    validate(quote, load_schema("quote-event.v1.schema.json"))
+
+
 def test_derived_event_schemas_accept_poc_outputs():
     state = StreamState()
     quote = canonical_quote(
@@ -92,3 +124,41 @@ def test_derived_event_schemas_accept_poc_outputs():
     validate(bar, load_schema("bar-1s-event.v1.schema.json"))
     validate(metrics, load_schema("rolling-metrics-event.v1.schema.json"))
     validate(alert, load_schema("quality-alert-event.v1.schema.json"))
+
+
+def test_derived_event_schemas_accept_fractional_outputs():
+    state = StreamState()
+    quote = canonical_quote(
+        {
+            "event_type": "quote",
+            "symbol": "BTC-USD",
+            "exchange": "COINBASE",
+            "event_time": "2026-05-04T00:00:00Z",
+            "sequence_number": 1,
+            "bid_price": 50000.0,
+            "bid_size": 0.5,
+            "ask_price": 50001.0,
+            "ask_size": 0.3,
+        },
+        ingest_time="2026-05-04T00:00:00.001Z",
+    )
+    trade = canonical_trade(
+        {
+            "event_type": "trade",
+            "symbol": "BTC-USD",
+            "exchange": "COINBASE",
+            "event_time": "2026-05-04T00:00:00Z",
+            "sequence_number": 12345,
+            "price": 50000.5,
+            "size": 0.01,
+        },
+        ingest_time="2026-05-04T00:00:00.001Z",
+    )
+
+    top, _ = state.quote_to_top_of_book(quote)
+    bar = state.trade_to_bar(trade)
+    metrics = state.trade_to_metrics(trade)
+
+    validate(top, load_schema("top-of-book-event.v1.schema.json"))
+    validate(bar, load_schema("bar-1s-event.v1.schema.json"))
+    validate(metrics, load_schema("rolling-metrics-event.v1.schema.json"))

@@ -8,8 +8,8 @@ resources:
   - deployments.yaml
   - services.yaml
 images:
-  - name: us-docker.pkg.dev/PROJECT_ID/market-data/feed-simulator
-    newName: us-docker.pkg.dev/PROJECT_ID/market-data/feed-simulator
+  - name: us-docker.pkg.dev/PROJECT_ID/market-data/feed-ingestor
+    newName: us-docker.pkg.dev/PROJECT_ID/market-data/feed-ingestor
     newTag: latest
   - name: us-docker.pkg.dev/PROJECT_ID/market-data/feed-handler
     newName: us-docker.pkg.dev/PROJECT_ID/market-data/feed-handler

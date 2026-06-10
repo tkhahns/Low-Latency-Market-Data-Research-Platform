@@ -1,0 +1,108 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flink-jobmanager
+  namespace: market-data
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flink-jobmanager
+  template:
+    metadata:
+      labels:
+        app: flink-jobmanager
+    spec:
+      serviceAccountName: market-data-workloads
+      containers:
+        - name: flink-jobmanager
+          image: us-docker.pkg.dev/PROJECT_ID/market-data/flink-job:latest
+          args: ["standalone-job", "--job-classname", "com.marketplatform.flink.MarketStateJob"]
+          envFrom:
+            - configMapRef:
+                name: market-platform-config
+          env:
+            - name: FLINK_PROPERTIES
+              value: |
+                jobmanager.rpc.address: flink-jobmanager
+                parallelism.default: 2
+                state.backend: rocksdb
+                state.checkpoints.dir: gs://$(GCS_CHECKPOINT_BUCKET)/checkpoints
+                state.savepoints.dir: gs://$(GCS_CHECKPOINT_BUCKET)/savepoints
+                execution.checkpointing.interval: 10000
+                execution.checkpointing.mode: EXACTLY_ONCE
+                restart-strategy: exponential-delay
+                restart-strategy.exponential-delay.initial-backoff: 1 s
+                restart-strategy.exponential-delay.max-backoff: 60 s
+          ports:
+            - containerPort: 8081
+              name: ui
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flink-taskmanager
+  namespace: market-data
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: flink-taskmanager
+  template:
+    metadata:
+      labels:
+        app: flink-taskmanager
+    spec:
+      serviceAccountName: market-data-workloads
+      containers:
+        - name: flink-taskmanager
+          image: us-docker.pkg.dev/PROJECT_ID/market-data/flink-job:latest
+          args: ["taskmanager"]
+          env:
+            - name: FLINK_PROPERTIES
+              value: |
+                jobmanager.rpc.address: flink-jobmanager
+                taskmanager.numberOfTaskSlots: 2
+                parallelism.default: 2
+                state.backend: rocksdb
+                state.checkpoints.dir: gs://$(GCS_CHECKPOINT_BUCKET)/checkpoints
+          resources:
+            requests:
+              cpu: "1"
+              memory: 2Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flink-jobmanager
+  namespace: market-data
+spec:
+  type: ClusterIP
+  selector:
+    app: flink-jobmanager
+  ports:
+    - name: rpc
+      port: 6123
+    - name: blob
+      port: 6124
+    - name: ui
+      port: 8081
+---
+# Scale down Python stream-processor when Flink is active
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stream-processor
+  namespace: market-data
+spec:
+  replicas: 0

@@ -9,7 +9,7 @@ from market_platform.config import KAFKA_BOOTSTRAP_SERVERS, SEQUENCE_RESTART_RES
 from market_platform.events import SequenceTracker, canonical_quote, canonical_trade, quality_alert
 from market_platform.serde import dumps, loads
 from market_platform.time import utc_now_iso
-from market_platform.topics import QUALITY_ALERTS_TOPIC, QUOTES_TOPIC, RAW_TOPIC, SYNTHETIC_RAW_TOPIC, TRADES_TOPIC
+from market_platform.topics import FEED_RAW_TOPIC, QUALITY_ALERTS_TOPIC, QUOTES_TOPIC, RAW_TOPIC, SYNTHETIC_RAW_TOPIC, TRADES_TOPIC
 
 LOGGER = logging.getLogger(__name__)
 
@@ -54,6 +54,7 @@ async def publish_alert(producer: AIOKafkaProducer, raw: dict, message: str) -> 
 async def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     consumer = AIOKafkaConsumer(
+        FEED_RAW_TOPIC,
         SYNTHETIC_RAW_TOPIC,
         bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
         group_id="feed-handler-poc",

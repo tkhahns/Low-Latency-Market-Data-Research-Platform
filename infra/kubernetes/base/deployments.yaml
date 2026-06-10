@@ -1,26 +1,46 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: feed-simulator
+  name: feed-ingestor
   namespace: market-data
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: feed-simulator
+      app: feed-ingestor
   template:
     metadata:
       labels:
-        app: feed-simulator
+        app: feed-ingestor
     spec:
       containers:
-        - name: feed-simulator
-          image: us-docker.pkg.dev/PROJECT_ID/market-data/feed-simulator:latest
-          imagePullPolicy: IfNotPresent
-          command: ["python", "-m", "market_platform.services.feed_simulator"]
+        - name: feed-ingestor
+          image: us-docker.pkg.dev/PROJECT_ID/market-data/feed-ingestor:latest
+          command: ["python", "-m", "market_platform.services.feed_ingestor"]
           envFrom:
             - configMapRef:
                 name: market-platform-config
+          env:
+            - name: FEED_SOURCE
+              value: coinbase
+            - name: EXCHANGE
+              value: COINBASE
+          ports:
+            - containerPort: 8020
+              name: health
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: health
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: health
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
           resources:
             requests:
               cpu: 100m
@@ -114,6 +134,8 @@ spec:
           envFrom:
             - configMapRef:
                 name: market-platform-config
+            - secretRef:
+                name: market-platform-secrets
           readinessProbe:
             httpGet:
               path: /health

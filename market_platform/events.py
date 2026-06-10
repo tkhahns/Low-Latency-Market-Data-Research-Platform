@@ -10,11 +10,11 @@ from .time import utc_now_iso
 
 @dataclass
 class SequenceTracker:
-    last_seen: dict[tuple[str, str], int] = field(default_factory=dict)
+    last_seen: dict[tuple[str, str, str], int] = field(default_factory=dict)
     restart_reset_threshold: int = 0
 
     def check(self, event: dict[str, Any]) -> Optional[dict[str, Any]]:
-        key = (event["symbol"], event["exchange"])
+        key = (event["symbol"], event["exchange"], event.get("event_type", ""))
         current = int(event["sequence_number"])
         previous = self.last_seen.get(key)
         self.last_seen[key] = max(current, previous or current)
@@ -54,7 +54,7 @@ def canonical_trade(raw: dict[str, Any], ingest_time: Optional[str] = None) -> d
         "ingest_time": ingest_time or utc_now_iso(),
         "sequence_number": int(raw["sequence_number"]),
         "price": float(raw["price"]),
-        "size": int(raw["size"]),
+        "size": float(raw["size"]),
         "trade_id": raw.get("trade_id") or str(uuid4()),
         "conditions": raw.get("conditions", []),
     }
@@ -70,9 +70,9 @@ def canonical_quote(raw: dict[str, Any], ingest_time: Optional[str] = None) -> d
         "ingest_time": ingest_time or utc_now_iso(),
         "sequence_number": int(raw["sequence_number"]),
         "bid_price": float(raw["bid_price"]),
-        "bid_size": int(raw["bid_size"]),
+        "bid_size": float(raw["bid_size"]),
         "ask_price": float(raw["ask_price"]),
-        "ask_size": int(raw["ask_size"]),
+        "ask_size": float(raw["ask_size"]),
     }
 
 

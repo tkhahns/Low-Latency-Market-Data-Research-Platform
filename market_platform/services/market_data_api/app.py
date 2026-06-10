@@ -3,16 +3,18 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import time
 from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import quote
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from redis.asyncio import Redis
 
-from market_platform.config import REDIS_URL
+from market_platform.config import API_KEYS, CORS_ORIGINS, REDIS_URL, WS_MAX_CONNECTIONS
 from market_platform.redis_keys import active_symbols, alerts, bar_1s, freshness, latest_quote, metrics, top_of_book
 from market_platform.time import utc_now_iso
 
@@ -21,8 +23,54 @@ OBSIDIAN_VAULT_DIR = Path(__file__).resolve().parents[3] / "obsidian" / "Market 
 OBSIDIAN_HOME_NOTE = OBSIDIAN_VAULT_DIR / "Home.md"
 
 app = FastAPI(title="Market Data API", version="0.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
+
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
+# --- Rate limiting (token bucket, in-process) ---
+
+class _TokenBucket:
+    def __init__(self, capacity: float = 200.0, refill_rate: float = 100.0) -> None:
+        self._capacity = capacity
+        self._tokens = capacity
+        self._refill_rate = refill_rate
+        self._last = time.monotonic()
+
+    def consume(self) -> bool:
+        now = time.monotonic()
+        elapsed = now - self._last
+        self._tokens = min(self._capacity, self._tokens + elapsed * self._refill_rate)
+        self._last = now
+        if self._tokens >= 1:
+            self._tokens -= 1
+            return True
+        return False
+
+
+_rate_buckets: dict[str, _TokenBucket] = {}
+
+
+def _check_auth(request: Request) -> Optional[str]:
+    """Return the caller identity (key or IP) or raise 401/429."""
+    if not API_KEYS:
+        return "open"
+    key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
+    if not key or key not in API_KEYS:
+        raise HTTPException(status_code=401, detail="Missing or invalid X-API-Key")
+    if key not in _rate_buckets:
+        _rate_buckets[key] = _TokenBucket()
+    if not _rate_buckets[key].consume():
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    return key
+
+
+# --- Demo / DemoRedis ---
 
 class DemoRedis:
     def __init__(self) -> None:
@@ -51,7 +99,7 @@ class DemoRedis:
 def event(symbol: str, exchange: str, sequence_number: int) -> dict[str, Any]:
     now = utc_now_iso()
     return {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "symbol": symbol,
         "exchange": exchange,
         "event_time": now,
@@ -110,7 +158,7 @@ def demo_redis() -> DemoRedis:
         )
         redis.values[freshness(symbol)] = json.dumps(
             {
-                "schema_version": "1.0",
+                "schema_version": "1.1",
                 "symbol": symbol,
                 "exchange": exchange,
                 "event_time": base["event_time"],
@@ -162,6 +210,7 @@ async def symbol_snapshot(redis: Redis, symbol: str) -> dict[str, Any]:
 @app.on_event("startup")
 async def startup() -> None:
     app.state.redis = await redis_client()
+    app.state.ws_connections = 0
 
 
 @app.on_event("shutdown")
@@ -181,7 +230,8 @@ async def health() -> dict[str, str]:
 
 
 @app.get("/symbols")
-async def symbols() -> dict[str, list[str]]:
+async def symbols(request: Request) -> dict[str, list[str]]:
+    _check_auth(request)
     members = await app.state.redis.smembers(active_symbols())
     return {"symbols": sorted(members)}
 
@@ -198,23 +248,30 @@ async def obsidian_project() -> dict[str, str]:
 
 
 @app.get("/latest/{symbol}")
-async def latest(symbol: str) -> dict[str, Any]:
+async def latest(symbol: str, request: Request) -> dict[str, Any]:
+    _check_auth(request)
     return await symbol_snapshot(app.state.redis, symbol)
 
 
 @app.get("/freshness/{symbol}")
-async def symbol_freshness(symbol: str) -> Optional[dict[str, Any]]:
+async def symbol_freshness(symbol: str, request: Request) -> Optional[dict[str, Any]]:
+    _check_auth(request)
     return await get_json(app.state.redis, freshness(symbol.upper()))
 
 
 @app.get("/alerts/{symbol}")
-async def symbol_alerts(symbol: str) -> dict[str, Any]:
+async def symbol_alerts(symbol: str, request: Request) -> dict[str, Any]:
+    _check_auth(request)
     items = await app.state.redis.lrange(alerts(symbol.upper()), 0, 24)
     return {"symbol": symbol.upper(), "alerts": [json.loads(item) for item in items]}
 
 
 @app.websocket("/ws/live")
 async def live(websocket: WebSocket) -> None:
+    if getattr(app.state, "ws_connections", 0) >= WS_MAX_CONNECTIONS:
+        await websocket.close(code=1008, reason="Connection limit reached")
+        return
+    app.state.ws_connections = getattr(app.state, "ws_connections", 0) + 1
     await websocket.accept()
     try:
         while True:
@@ -224,3 +281,5 @@ async def live(websocket: WebSocket) -> None:
             await asyncio.sleep(0.5)
     except WebSocketDisconnect:
         return
+    finally:
+        app.state.ws_connections = max(0, getattr(app.state, "ws_connections", 1) - 1)

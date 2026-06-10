@@ -152,6 +152,38 @@ services:
       - redpanda
     restart: unless-stopped
 
+  coinbase-feed:
+    profiles: ["coinbase"]
+    build:
+      context: ..
+      dockerfile: infra/python-service.Dockerfile
+    command: ["python", "-m", "market_platform.services.feed_ingestor"]
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      FEED_SOURCE: coinbase
+      COINBASE_PRODUCTS: ${COINBASE_PRODUCTS:-BTC-USD,ETH-USD,SOL-USD}
+      EXCHANGE: COINBASE
+    depends_on:
+      - redpanda
+    restart: unless-stopped
+
+  replay-feed:
+    profiles: ["replay"]
+    build:
+      context: ..
+      dockerfile: infra/python-service.Dockerfile
+    command: ["python", "-m", "market_platform.services.feed_ingestor"]
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      FEED_SOURCE: replay
+      FEED_REPLAY_FILE: /app/market_platform/fixtures/coinbase-sample.jsonl
+      FEED_REPLAY_SPEED: ${FEED_REPLAY_SPEED:-0}
+      FEED_REPLAY_LOOP: "true"
+      EXCHANGE: COINBASE
+    depends_on:
+      - redpanda
+    restart: unless-stopped
+
   databento-feed:
     profiles: ["databento"]
     build:

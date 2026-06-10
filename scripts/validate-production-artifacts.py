@@ -44,7 +44,7 @@ def validate_kubernetes() -> None:
         raise AssertionError(f"Kustomization missing resources: {sorted(expected - resources)}")
     deployments = [doc for doc in read_yaml_all("infra/kubernetes/base/deployments.yaml") if doc.get("kind") == "Deployment"]
     names = {deployment["metadata"]["name"] for deployment in deployments}
-    expected_names = {"feed-simulator", "feed-handler", "stream-processor", "market-data-api", "mcp-ops-server"}
+    expected_names = {"feed-ingestor", "feed-handler", "stream-processor", "market-data-api", "mcp-ops-server"}
     if expected_names - names:
         raise AssertionError(f"Missing deployments: {sorted(expected_names - names)}")
 

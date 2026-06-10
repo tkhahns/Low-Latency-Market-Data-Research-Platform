@@ -14,7 +14,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "1.0"
+      "enum": ["1.0", "1.1"]
     },
     "event_type": {
       "enum": ["trade", "quote", "halt", "imbalance", "sequence_gap", "heartbeat"]

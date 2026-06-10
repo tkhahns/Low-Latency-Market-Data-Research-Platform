@@ -5,6 +5,7 @@ from datetime import timezone
 from math import log, sqrt
 from typing import Any
 
+from .config import SCHEMA_VERSION
 from .events import quality_alert
 from .time import parse_utc, utc_now_iso
 
@@ -16,10 +17,10 @@ class BarState:
     high: float
     low: float
     close: float
-    volume: int
+    volume: float
     notional: float
 
-    def update(self, price: float, size: int) -> None:
+    def update(self, price: float, size: float) -> None:
         self.high = max(self.high, price)
         self.low = min(self.low, price)
         self.close = price
@@ -28,7 +29,7 @@ class BarState:
 
     def as_event(self, trade: dict[str, Any]) -> dict[str, Any]:
         return {
-            "schema_version": "1.0",
+            "schema_version": SCHEMA_VERSION,
             "event_type": "bar_1s",
             "symbol": trade["symbol"],
             "exchange": trade["exchange"],
@@ -47,10 +48,10 @@ class BarState:
 @dataclass
 class SymbolWindow:
     prices: list[tuple[str, float]] = field(default_factory=list)
-    volume: int = 0
+    volume: float = 0.0
     notional: float = 0.0
 
-    def add_trade(self, event_time: str, price: float, size: int, max_points: int = 120) -> None:
+    def add_trade(self, event_time: str, price: float, size: float, max_points: int = 120) -> None:
         self.prices.append((event_time, price))
         self.prices = self.prices[-max_points:]
         self.volume += size
@@ -70,7 +71,7 @@ class SymbolWindow:
         else:
             volatility_bps = 0.0
         return {
-            "schema_version": "1.0",
+            "schema_version": SCHEMA_VERSION,
             "event_type": "rolling_metrics",
             "symbol": trade["symbol"],
             "exchange": trade["exchange"],
@@ -94,7 +95,7 @@ class StreamState:
         mid = round((float(quote["ask_price"]) + float(quote["bid_price"])) / 2, 6)
         now = utc_now_iso()
         top = {
-            "schema_version": "1.0",
+            "schema_version": SCHEMA_VERSION,
             "event_type": "top_of_book",
             "symbol": quote["symbol"],
             "exchange": quote["exchange"],
@@ -139,7 +140,7 @@ class StreamState:
         window_start = event_time.isoformat().replace("+00:00", "Z")
         key = f"{trade['symbol']}:{window_start}"
         price = float(trade["price"])
-        size = int(trade["size"])
+        size = float(trade["size"])
         if key not in self.bars:
             self.bars[key] = BarState(
                 window_start=window_start,
@@ -157,7 +158,7 @@ class StreamState:
     def trade_to_metrics(self, trade: dict[str, Any]) -> dict[str, Any]:
         key = f"{trade['symbol']}:{trade['exchange']}"
         price = float(trade["price"])
-        size = int(trade["size"])
+        size = float(trade["size"])
         if key not in self.windows:
             self.windows[key] = SymbolWindow()
         self.windows[key].add_trade(trade["event_time"], price, size)

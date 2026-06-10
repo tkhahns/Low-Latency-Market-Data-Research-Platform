@@ -1,4 +1,5 @@
 SYNTHETIC_RAW_TOPIC = "feed.synthetic.raw.v1"
+FEED_RAW_TOPIC = "feed.raw.v1"
 RAW_TOPIC = "market.raw.v1"
 TRADES_TOPIC = "market.trades.v1"
 QUOTES_TOPIC = "market.quotes.v1"
@@ -9,6 +10,7 @@ QUALITY_ALERTS_TOPIC = "market.quality.alerts.v1"
 
 
 ALL_TOPICS = [
+    FEED_RAW_TOPIC,
     SYNTHETIC_RAW_TOPIC,
     RAW_TOPIC,
     TRADES_TOPIC,

@@ -1,0 +1,51 @@
+name: nightly-live-smoke
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  live-smoke:
+    name: coinbase-live-smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start live Coinbase stack (keyless, bounded 90s)
+        run: |
+          FEED_TIMEOUT_SECONDS=90 \
+          docker compose -f infra/docker-compose.yml --profile coinbase up -d --build \
+            redpanda redis feed-handler stream-processor market-data-api coinbase-feed
+      - name: Wait for API health
+        run: bash scripts/wait-for-health.sh http://localhost:8000/health 60
+      - name: Wait for live data to arrive
+        run: sleep 30
+      - name: Assert at least one symbol populated
+        run: |
+          SYMBOLS=$(curl -fsS http://localhost:8000/symbols | python -c 'import json,sys; s=json.load(sys.stdin)["symbols"]; print(len(s))')
+          echo "Symbols in Redis: $SYMBOLS"
+          python -c "assert int('$SYMBOLS') >= 1, 'No symbols populated after 30s'"
+      - name: Assert BTC-USD has live quote data
+        run: |
+          curl -fsS http://localhost:8000/latest/BTC-USD \
+            | python -c 'import json,sys; d=json.load(sys.stdin); assert d.get("latest_quote") is not None, f"No quote: {d}"'
+      - name: Tear down
+        if: always()
+        run: docker compose -f infra/docker-compose.yml --profile coinbase down -v
+      - name: Open issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `Nightly live smoke failed: ${new Date().toISOString().slice(0,10)}`;
+            const body = `The nightly Coinbase live smoke failed on run [#${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).\n\nCheck for upstream API changes or network issues.`;
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: 'nightly-smoke'
+            });
+            if (issues.data.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title, body, labels: ['nightly-smoke']
+              });
+            }

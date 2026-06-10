@@ -13,3 +13,7 @@ output "redis_host" {
 output "postgres_connection_name" {
   value = google_sql_database_instance.postgres.connection_name
 }
+
+output "flink_checkpoint_bucket" {
+  value = google_storage_bucket.flink_checkpoints.name
+}

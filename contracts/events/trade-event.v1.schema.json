@@ -16,7 +16,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "1.0"
+      "enum": ["1.0", "1.1"]
     },
     "event_type": {
       "const": "trade"
@@ -44,7 +44,7 @@
       "exclusiveMinimum": 0
     },
     "size": {
-      "type": "integer",
+      "type": "number",
       "exclusiveMinimum": 0
     },
     "trade_id": {

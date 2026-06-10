@@ -53,3 +53,34 @@ jobs:
           cache: maven
       - name: Package Flink job
         run: mvn -f services/stream-processor/flink/pom.xml -DskipTests package
+
+  e2e-smoke:
+    name: e2e-smoke-replay
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start replay stack
+        run: |
+          docker compose -f infra/docker-compose.yml --profile replay up -d --build \
+            redpanda redis feed-handler stream-processor market-data-api replay-feed
+      - name: Wait for API health
+        run: bash scripts/wait-for-health.sh http://localhost:8000/health 120
+      - name: Assert BTC-USD snapshot populated
+        run: |
+          sleep 5
+          curl -fsS http://localhost:8000/latest/BTC-USD \
+            | python -c 'import json,sys; d=json.load(sys.stdin); assert d["symbol"]=="BTC-USD", f"Unexpected: {d}"'
+      - name: Run load test
+        run: |
+          python -m pip install --quiet httpx
+          python scripts/load-test-local.py --symbol BTC-USD --requests 200 --concurrency 10 --json-out perf.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: latency-report-${{ github.run_id }}
+          path: perf.json
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose -f infra/docker-compose.yml logs --tail=300
+      - name: Tear down
+        if: always()
+        run: docker compose -f infra/docker-compose.yml --profile replay down -v
