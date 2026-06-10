@@ -1,0 +1,15 @@
+# Keep the deployment bundle small: only main.py and its import chain
+# (market_platform/, apps/trader-dashboard/static/, obsidian/) is needed.
+.venv
+.github
+.pytest_cache
+.ruff_cache
+*.egg-info
+infra
+lakehouse
+observability
+scripts
+services
+tests
+docs
+PLAN.md

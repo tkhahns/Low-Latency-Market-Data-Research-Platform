@@ -135,6 +135,17 @@ def test_demo_mode_seed_contains_market_dashboard_state():
     assert latest["freshness"]["status"] == "fresh"
 
 
+def test_live_snapshot_rest_endpoint_matches_ws_frame_shape():
+    install_fake_redis()
+    client = TestClient(app)
+
+    frame = client.get("/live/snapshot").json()
+
+    assert frame["channel"] == "live"
+    assert frame["symbols"][0]["symbol"] == "AAPL"
+    assert frame["symbols"][0]["metrics"]["sample_count"] == 3
+
+
 @pytest.fixture(autouse=False)
 def with_api_keys(monkeypatch):
     """Enable API key enforcement for the duration of a test."""
@@ -177,3 +188,11 @@ def test_api_key_via_query_param(with_api_keys):
     client = TestClient(app)
     resp = client.get("/symbols?api_key=test-key-1")
     assert resp.status_code == 200
+
+
+def test_live_snapshot_requires_api_key_when_configured(with_api_keys):
+    install_fake_redis()
+    client = TestClient(app, raise_server_exceptions=False)
+
+    assert client.get("/live/snapshot").status_code == 401
+    assert client.get("/live/snapshot?api_key=test-key-1").status_code == 200

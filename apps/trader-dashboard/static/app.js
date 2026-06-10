@@ -49,23 +49,58 @@ async function loadObsidianProject() {
   }
 }
 
+function renderFrame(payload) {
+  symbolCount.textContent = payload.symbols.length;
+  watchlist.innerHTML = payload.symbols.map(render).join("");
+}
+
+const apiKey = new URLSearchParams(window.location.search).get("api_key");
+const snapshotUrl = apiKey ? `/live/snapshot?api_key=${encodeURIComponent(apiKey)}` : "/live/snapshot";
+let polling = false;
+
+async function poll() {
+  try {
+    const response = await fetch(snapshotUrl);
+    if (response.ok) {
+      connection.textContent = "Live (polling)";
+      renderFrame(await response.json());
+    } else {
+      connection.textContent = `Disconnected (${response.status})`;
+    }
+  } catch {
+    connection.textContent = "Disconnected";
+  }
+  setTimeout(poll, 1000);
+}
+
+function startPolling() {
+  if (polling) return;
+  polling = true;
+  poll();
+}
+
 function connect() {
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
   const socket = new WebSocket(`${protocol}://${window.location.host}/ws/live`);
+  let opened = false;
 
   socket.onopen = () => {
+    opened = true;
     connection.textContent = "Live";
   };
 
   socket.onmessage = (event) => {
-    const payload = JSON.parse(event.data);
-    symbolCount.textContent = payload.symbols.length;
-    watchlist.innerHTML = payload.symbols.map(render).join("");
+    renderFrame(JSON.parse(event.data));
   };
 
   socket.onclose = () => {
     connection.textContent = "Disconnected";
-    setTimeout(connect, 1000);
+    if (opened) {
+      setTimeout(connect, 1000);
+    } else {
+      // WebSockets unavailable (e.g. serverless hosting); fall back to REST polling.
+      startPolling();
+    }
   };
 }
 

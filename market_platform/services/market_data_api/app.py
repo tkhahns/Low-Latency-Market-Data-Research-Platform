@@ -188,6 +188,16 @@ async def redis_client() -> Redis:
     return Redis.from_url(REDIS_URL, decode_responses=True)
 
 
+async def get_redis() -> Redis:
+    # Serverless hosts (e.g. Vercel) may invoke the ASGI app without running
+    # lifespan startup, so initialize the connection lazily on first use.
+    redis = getattr(app.state, "redis", None)
+    if redis is None:
+        redis = await redis_client()
+        app.state.redis = redis
+    return redis
+
+
 async def get_json(redis: Redis, key: str) -> Optional[dict[str, Any]]:
     value = await redis.get(key)
     return json.loads(value) if value else None
@@ -215,7 +225,9 @@ async def startup() -> None:
 
 @app.on_event("shutdown")
 async def shutdown() -> None:
-    await app.state.redis.aclose()
+    redis = getattr(app.state, "redis", None)
+    if redis is not None:
+        await redis.aclose()
 
 
 @app.get("/")
@@ -225,14 +237,16 @@ async def dashboard() -> FileResponse:
 
 @app.get("/health")
 async def health() -> dict[str, str]:
-    await app.state.redis.ping()
+    redis = await get_redis()
+    await redis.ping()
     return {"status": "ok", "time": utc_now_iso()}
 
 
 @app.get("/symbols")
 async def symbols(request: Request) -> dict[str, list[str]]:
     _check_auth(request)
-    members = await app.state.redis.smembers(active_symbols())
+    redis = await get_redis()
+    members = await redis.smembers(active_symbols())
     return {"symbols": sorted(members)}
 
 
@@ -250,20 +264,34 @@ async def obsidian_project() -> dict[str, str]:
 @app.get("/latest/{symbol}")
 async def latest(symbol: str, request: Request) -> dict[str, Any]:
     _check_auth(request)
-    return await symbol_snapshot(app.state.redis, symbol)
+    return await symbol_snapshot(await get_redis(), symbol)
 
 
 @app.get("/freshness/{symbol}")
 async def symbol_freshness(symbol: str, request: Request) -> Optional[dict[str, Any]]:
     _check_auth(request)
-    return await get_json(app.state.redis, freshness(symbol.upper()))
+    return await get_json(await get_redis(), freshness(symbol.upper()))
 
 
 @app.get("/alerts/{symbol}")
 async def symbol_alerts(symbol: str, request: Request) -> dict[str, Any]:
     _check_auth(request)
-    items = await app.state.redis.lrange(alerts(symbol.upper()), 0, 24)
+    redis = await get_redis()
+    items = await redis.lrange(alerts(symbol.upper()), 0, 24)
     return {"symbol": symbol.upper(), "alerts": [json.loads(item) for item in items]}
+
+
+async def live_frame(redis: Redis) -> dict[str, Any]:
+    members = sorted(await redis.smembers(active_symbols()))
+    snapshots = [await symbol_snapshot(redis, symbol) for symbol in members]
+    return {"channel": "live", "time": utc_now_iso(), "symbols": snapshots}
+
+
+@app.get("/live/snapshot")
+async def live_snapshot(request: Request) -> dict[str, Any]:
+    """One live frame over REST, for hosts without WebSocket support (e.g. Vercel)."""
+    _check_auth(request)
+    return await live_frame(await get_redis())
 
 
 @app.websocket("/ws/live")
@@ -274,10 +302,9 @@ async def live(websocket: WebSocket) -> None:
     app.state.ws_connections = getattr(app.state, "ws_connections", 0) + 1
     await websocket.accept()
     try:
+        redis = await get_redis()
         while True:
-            members = sorted(await app.state.redis.smembers(active_symbols()))
-            snapshots = [await symbol_snapshot(app.state.redis, symbol) for symbol in members]
-            await websocket.send_json({"channel": "live", "time": utc_now_iso(), "symbols": snapshots})
+            await websocket.send_json(await live_frame(redis))
             await asyncio.sleep(0.5)
     except WebSocketDisconnect:
         return
