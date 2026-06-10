@@ -18,7 +18,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "1.0"
+      "enum": ["1.0", "1.1"]
     },
     "event_type": {
       "const": "quote"
@@ -46,7 +46,7 @@
       "exclusiveMinimum": 0
     },
     "bid_size": {
-      "type": "integer",
+      "type": "number",
       "minimum": 0
     },
     "ask_price": {
@@ -54,7 +54,7 @@
       "exclusiveMinimum": 0
     },
     "ask_size": {
-      "type": "integer",
+      "type": "number",
       "minimum": 0
     }
   },

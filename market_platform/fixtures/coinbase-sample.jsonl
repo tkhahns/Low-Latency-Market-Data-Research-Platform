@@ -1,0 +1,30 @@
+# Scrubbed Coinbase fixture for deterministic CI replay.
+# Timestamps are rebased by ReplayFeedSource; _capture_offset_ms drives pacing.
+# Trade sequence_number == trade_id (monotonic per product).
+# Quote sequence_number is a local counter per product.
+# Row 14 (BTC-USD trade seq 1005) intentionally skips 1003-1004 to exercise gap detection.
+{"event_type":"quote","symbol":"BTC-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:00.000Z","sequence_number":1,"bid_price":50000.0,"bid_size":0.5,"ask_price":50001.0,"ask_size":0.3,"_capture_offset_ms":0}
+{"event_type":"trade","symbol":"BTC-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:00.050Z","sequence_number":1001,"price":50000.5,"size":0.01,"trade_id":"1001","conditions":["buy"],"_capture_offset_ms":50}
+{"event_type":"quote","symbol":"ETH-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:00.080Z","sequence_number":1,"bid_price":3000.0,"bid_size":1.2,"ask_price":3000.5,"ask_size":0.8,"_capture_offset_ms":80}
+{"event_type":"trade","symbol":"ETH-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:00.120Z","sequence_number":2001,"price":3000.25,"size":0.5,"trade_id":"2001","conditions":["sell"],"_capture_offset_ms":120}
+{"event_type":"quote","symbol":"BTC-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:00.200Z","sequence_number":2,"bid_price":50001.0,"bid_size":0.4,"ask_price":50002.0,"ask_size":0.2,"_capture_offset_ms":200}
+{"event_type":"trade","symbol":"BTC-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:00.250Z","sequence_number":1002,"price":50001.5,"size":0.02,"trade_id":"1002","conditions":["sell"],"_capture_offset_ms":250}
+{"event_type":"quote","symbol":"ETH-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:00.280Z","sequence_number":2,"bid_price":3001.0,"bid_size":1.0,"ask_price":3001.5,"ask_size":0.9,"_capture_offset_ms":280}
+{"event_type":"trade","symbol":"ETH-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:00.320Z","sequence_number":2002,"price":3001.25,"size":0.3,"trade_id":"2002","conditions":["buy"],"_capture_offset_ms":320}
+{"event_type":"quote","symbol":"BTC-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:00.400Z","sequence_number":3,"bid_price":50002.0,"bid_size":0.6,"ask_price":50003.0,"ask_size":0.4,"_capture_offset_ms":400}
+{"event_type":"quote","symbol":"ETH-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:00.420Z","sequence_number":3,"bid_price":3002.0,"bid_size":0.8,"ask_price":3002.5,"ask_size":0.7,"_capture_offset_ms":420}
+{"event_type":"trade","symbol":"ETH-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:00.470Z","sequence_number":2003,"price":3002.0,"size":0.25,"trade_id":"2003","conditions":["sell"],"_capture_offset_ms":470}
+{"event_type":"quote","symbol":"BTC-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:00.600Z","sequence_number":4,"bid_price":50003.0,"bid_size":0.3,"ask_price":50004.0,"ask_size":0.5,"_capture_offset_ms":600}
+{"event_type":"trade","symbol":"BTC-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:00.650Z","sequence_number":1005,"price":50003.5,"size":0.015,"trade_id":"1005","conditions":["buy"],"_capture_offset_ms":650}
+{"event_type":"quote","symbol":"ETH-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:00.700Z","sequence_number":4,"bid_price":3003.0,"bid_size":1.1,"ask_price":3003.5,"ask_size":0.6,"_capture_offset_ms":700}
+{"event_type":"trade","symbol":"BTC-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:00.750Z","sequence_number":1006,"price":50004.0,"size":0.03,"trade_id":"1006","conditions":["sell"],"_capture_offset_ms":750}
+{"event_type":"quote","symbol":"BTC-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:00.800Z","sequence_number":5,"bid_price":50004.0,"bid_size":0.5,"ask_price":50005.0,"ask_size":0.3,"_capture_offset_ms":800}
+{"event_type":"trade","symbol":"ETH-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:00.850Z","sequence_number":2004,"price":3003.0,"size":0.4,"trade_id":"2004","conditions":["buy"],"_capture_offset_ms":850}
+{"event_type":"quote","symbol":"ETH-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:00.900Z","sequence_number":5,"bid_price":3004.0,"bid_size":0.9,"ask_price":3004.5,"ask_size":0.8,"_capture_offset_ms":900}
+{"event_type":"trade","symbol":"BTC-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:00.950Z","sequence_number":1007,"price":50004.5,"size":0.025,"trade_id":"1007","conditions":["buy"],"_capture_offset_ms":950}
+{"event_type":"quote","symbol":"BTC-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:01.000Z","sequence_number":6,"bid_price":50005.0,"bid_size":0.4,"ask_price":50006.0,"ask_size":0.2,"_capture_offset_ms":1000}
+{"event_type":"trade","symbol":"ETH-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:01.050Z","sequence_number":2005,"price":3004.0,"size":0.35,"trade_id":"2005","conditions":["sell"],"_capture_offset_ms":1050}
+{"event_type":"quote","symbol":"ETH-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:01.100Z","sequence_number":6,"bid_price":3005.0,"bid_size":1.0,"ask_price":3005.5,"ask_size":0.7,"_capture_offset_ms":1100}
+{"event_type":"trade","symbol":"BTC-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:01.150Z","sequence_number":1008,"price":50005.5,"size":0.02,"trade_id":"1008","conditions":["buy"],"_capture_offset_ms":1150}
+{"event_type":"quote","symbol":"BTC-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:01.200Z","sequence_number":7,"bid_price":50006.0,"bid_size":0.3,"ask_price":50007.0,"ask_size":0.4,"_capture_offset_ms":1200}
+{"event_type":"trade","symbol":"ETH-USD","exchange":"COINBASE","event_time":"2026-01-01T00:00:01.250Z","sequence_number":2006,"price":3005.0,"size":0.2,"trade_id":"2006","conditions":["buy"],"_capture_offset_ms":1250}

@@ -58,6 +58,24 @@ resource "google_container_cluster" "market_data" {
   deletion_protection = true
 }
 
+resource "google_storage_bucket" "flink_checkpoints" {
+  name                        = "${var.project_id}-flink-checkpoints-${var.environment}"
+  location                    = var.region
+  uniform_bucket_level_access = true
+  force_destroy               = false
+
+  lifecycle_rule {
+    condition { age = 30 }
+    action { type = "Delete" }
+  }
+}
+
+resource "google_storage_bucket_iam_member" "flink_checkpoints_writer" {
+  bucket = google_storage_bucket.flink_checkpoints.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.workloads.email}"
+}
+
 resource "google_secret_manager_secret" "required" {
   for_each = toset([
     "POSTGRES_DSN",
@@ -65,7 +83,10 @@ resource "google_secret_manager_secret" "required" {
     "DATABRICKS_HOST",
     "DATABRICKS_TOKEN",
     "PROVIDER_API_KEY",
-    "OPENAI_API_KEY"
+    "OPENAI_API_KEY",
+    "KAFKA_SASL_USERNAME",
+    "KAFKA_SASL_PASSWORD",
+    "API_KEYS"
   ])
   secret_id = "market-data-${lower(each.key)}-${var.environment}"
   replication {

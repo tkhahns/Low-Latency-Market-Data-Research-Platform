@@ -15,11 +15,27 @@ def test_canonical_trade_adds_required_contract_fields():
         ingest_time="2026-05-04T00:00:01Z",
     )
 
-    assert event["schema_version"] == "1.0"
+    assert event["schema_version"] == "1.1"
     assert event["event_type"] == "trade"
     assert event["symbol"] == "AAPL"
     assert event["ingest_time"] == "2026-05-04T00:00:01Z"
     assert event["trade_id"]
+    assert isinstance(event["size"], float)
+
+
+def test_canonical_trade_preserves_fractional_size():
+    event = canonical_trade(
+        {
+            "event_type": "trade",
+            "symbol": "BTC-USD",
+            "exchange": "COINBASE",
+            "event_time": "2026-05-04T00:00:00Z",
+            "sequence_number": 12345,
+            "price": 50000.10,
+            "size": 0.01234567,
+        }
+    )
+    assert abs(event["size"] - 0.01234567) < 1e-10
 
 
 def test_sequence_tracker_detects_gap():
@@ -59,3 +75,30 @@ def test_sequence_tracker_allows_large_sequence_restart():
 
     assert tracker.check(first) is None
     assert tracker.check(restart) is None
+
+
+def test_sequence_tracker_keys_by_event_type():
+    """Trade and quote sequence spaces for the same product must not collide."""
+    tracker = SequenceTracker()
+    trade1 = {"symbol": "BTC-USD", "exchange": "COINBASE", "event_type": "trade", "sequence_number": 1001}
+    trade2 = {"symbol": "BTC-USD", "exchange": "COINBASE", "event_type": "trade", "sequence_number": 1002}
+    quote1 = {"symbol": "BTC-USD", "exchange": "COINBASE", "event_type": "quote", "sequence_number": 1}
+    quote2 = {"symbol": "BTC-USD", "exchange": "COINBASE", "event_type": "quote", "sequence_number": 2}
+
+    assert tracker.check(trade1) is None
+    assert tracker.check(trade2) is None
+    assert tracker.check(quote1) is None
+    assert tracker.check(quote2) is None
+
+
+def test_sequence_tracker_detects_gap_in_trade_stream():
+    tracker = SequenceTracker()
+    t1 = {"symbol": "BTC-USD", "exchange": "COINBASE", "event_type": "trade", "sequence_number": 1001}
+    t3 = {"symbol": "BTC-USD", "exchange": "COINBASE", "event_type": "trade", "sequence_number": 1005}
+
+    assert tracker.check(t1) is None
+    alert = tracker.check(t3)
+    assert alert is not None
+    assert alert["alert_type"] == "sequence_gap"
+    assert alert["expected_sequence"] == 1002
+    assert alert["observed_sequence"] == 1005

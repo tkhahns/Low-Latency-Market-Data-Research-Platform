@@ -1,10 +1,11 @@
 import json
+import os
 
+import pytest
 from fastapi.testclient import TestClient
 
 from market_platform.redis_keys import active_symbols, alerts, bar_1s, freshness, latest_quote, metrics, top_of_book
-from market_platform.services.market_data_api.app import app
-from market_platform.services.market_data_api.app import demo_redis
+from market_platform.services.market_data_api.app import _rate_buckets, app, demo_redis
 
 
 class FakeRedis:
@@ -30,7 +31,7 @@ class FakeRedis:
 
 def payload(**overrides):
     value = {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "symbol": "AAPL",
         "exchange": "XNAS",
         "event_time": "2026-05-07T00:00:00Z",
@@ -132,3 +133,47 @@ def test_demo_mode_seed_contains_market_dashboard_state():
     assert latest["top_of_book"]["exchange"] == "GLBX"
     assert latest["bar_1s"]["volume"] > 0
     assert latest["freshness"]["status"] == "fresh"
+
+
+@pytest.fixture(autouse=False)
+def with_api_keys(monkeypatch):
+    """Enable API key enforcement for the duration of a test."""
+    import market_platform.config as cfg
+    import market_platform.services.market_data_api.app as api_app
+    monkeypatch.setattr(cfg, "API_KEYS", {"test-key-1"})
+    monkeypatch.setattr(api_app, "API_KEYS", {"test-key-1"})
+    _rate_buckets.clear()
+    yield
+    _rate_buckets.clear()
+
+
+def test_api_key_required_when_configured(with_api_keys):
+    install_fake_redis()
+    client = TestClient(app, raise_server_exceptions=False)
+
+    assert client.get("/latest/aapl").status_code == 401
+    assert client.get("/symbols").status_code == 401
+    assert client.get("/freshness/aapl").status_code == 401
+    assert client.get("/alerts/aapl").status_code == 401
+
+
+def test_valid_api_key_grants_access(with_api_keys):
+    install_fake_redis()
+    client = TestClient(app)
+
+    resp = client.get("/latest/aapl", headers={"X-API-Key": "test-key-1"})
+    assert resp.status_code == 200
+    assert resp.json()["symbol"] == "AAPL"
+
+
+def test_health_endpoint_is_always_open(with_api_keys):
+    install_fake_redis()
+    client = TestClient(app)
+    assert client.get("/health").status_code == 200
+
+
+def test_api_key_via_query_param(with_api_keys):
+    install_fake_redis()
+    client = TestClient(app)
+    resp = client.get("/symbols?api_key=test-key-1")
+    assert resp.status_code == 200

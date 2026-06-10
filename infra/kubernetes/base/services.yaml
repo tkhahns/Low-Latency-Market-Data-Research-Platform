@@ -1,6 +1,20 @@
 apiVersion: v1
 kind: Service
 metadata:
+  name: feed-ingestor
+  namespace: market-data
+spec:
+  type: ClusterIP
+  selector:
+    app: feed-ingestor
+  ports:
+    - name: health
+      port: 8020
+      targetPort: health
+---
+apiVersion: v1
+kind: Service
+metadata:
   name: market-data-api
   namespace: market-data
 spec:

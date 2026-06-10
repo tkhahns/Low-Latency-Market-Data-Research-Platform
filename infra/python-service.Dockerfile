@@ -7,6 +7,7 @@ COPY apps/trader-dashboard/static /app/apps/trader-dashboard/static
 COPY contracts /app/contracts
 COPY docs /app/docs
 COPY lakehouse/contracts /app/lakehouse/contracts
+COPY scripts /app/scripts
 RUN pip install --no-cache-dir .
 
 ENV PYTHONUNBUFFERED=1

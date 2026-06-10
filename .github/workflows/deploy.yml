@@ -1,0 +1,128 @@
+name: deploy
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment"
+        required: true
+        default: "prod"
+        type: choice
+        options: [prod, staging]
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  REGION: us-central1
+  IMAGE_REGISTRY: us-docker.pkg.dev
+
+jobs:
+  build-push:
+    name: build-and-push-images
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'prod' }}
+    outputs:
+      image_tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve image tag
+        id: tag
+        run: echo "tag=${GITHUB_REF_NAME:-${GITHUB_SHA::8}}" >> "$GITHUB_OUTPUT"
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: gcloud auth configure-docker ${{ env.IMAGE_REGISTRY }} --quiet
+      - name: Build and push Python service image
+        env:
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          for svc in feed-ingestor feed-handler stream-processor market-data-api mcp-ops-server; do
+            IMAGE="$IMAGE_REGISTRY/$PROJECT_ID/market-data/$svc:$TAG"
+            docker build -f infra/python-service.Dockerfile -t "$IMAGE" .
+            docker push "$IMAGE"
+          done
+      - name: Build and push Flink job image
+        env:
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          IMAGE="$IMAGE_REGISTRY/$PROJECT_ID/market-data/flink-job:$TAG"
+          docker build -f infra/flink-job.Dockerfile -t "$IMAGE" .
+          docker push "$IMAGE"
+
+  terraform:
+    name: terraform-apply
+    needs: build-push
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'prod' }}
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.6"
+      - run: terraform init
+      - run: terraform plan -out=tfplan -var="project_id=${{ secrets.GCP_PROJECT_ID }}" -var="environment=${{ inputs.environment || 'prod' }}"
+      - run: terraform apply -auto-approve tfplan
+
+  deploy:
+    name: deploy-to-gke
+    needs: [build-push, terraform]
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'prod' }}
+    env:
+      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      TAG: ${{ needs.build-push.outputs.image_tag }}
+      CLUSTER: market-data-${{ inputs.environment || 'prod' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: gcloud container clusters get-credentials ${{ env.CLUSTER }} --region ${{ env.REGION }} --project ${{ env.PROJECT_ID }}
+      - name: Apply manifests with pinned tags
+        run: |
+          cd infra/kubernetes/overlays/gcp
+          # Patch image tags in kustomization before applying
+          kustomize edit set image \
+            us-docker.pkg.dev/PROJECT_ID/market-data/feed-ingestor=us-docker.pkg.dev/$PROJECT_ID/market-data/feed-ingestor:$TAG \
+            us-docker.pkg.dev/PROJECT_ID/market-data/feed-handler=us-docker.pkg.dev/$PROJECT_ID/market-data/feed-handler:$TAG \
+            us-docker.pkg.dev/PROJECT_ID/market-data/stream-processor=us-docker.pkg.dev/$PROJECT_ID/market-data/stream-processor:$TAG \
+            us-docker.pkg.dev/PROJECT_ID/market-data/market-data-api=us-docker.pkg.dev/$PROJECT_ID/market-data/market-data-api:$TAG \
+            us-docker.pkg.dev/PROJECT_ID/market-data/mcp-ops-server=us-docker.pkg.dev/$PROJECT_ID/market-data/mcp-ops-server:$TAG \
+            us-docker.pkg.dev/PROJECT_ID/market-data/flink-job=us-docker.pkg.dev/$PROJECT_ID/market-data/flink-job:$TAG
+          kustomize build . | kubectl apply -f -
+      - name: Wait for rollout
+        run: |
+          for deploy in feed-ingestor feed-handler market-data-api mcp-ops-server; do
+            kubectl rollout status deployment/$deploy -n market-data --timeout=300s
+          done
+      - name: Post-deploy smoke
+        run: |
+          API_IP=$(kubectl get service market-data-api -n market-data -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          bash scripts/wait-for-health.sh "http://$API_IP:8000/health" 120
+          curl -fsS "http://$API_IP:8000/symbols"
+      - name: Rollback on smoke failure
+        if: failure()
+        run: |
+          for deploy in feed-ingestor feed-handler market-data-api mcp-ops-server; do
+            kubectl rollout undo deployment/$deploy -n market-data || true
+          done
+          echo "Rollback initiated"
+          exit 1
