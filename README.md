@@ -1,19 +1,20 @@
 # Low-Latency Market Data & Research Platform
 
-The project is organized around three paths:
+Four integrated layers, each independently deployable:
 
-- Hot path: ingest, process, cache, and serve live market data with low latency.
-- Cold path: persist raw and curated history for replay, research, and backtesting.
-- Agentic ops path: expose controlled reliability tools through MCP with RAG-backed context.
+- **Hot path** — ingest, process, cache, and serve live market data with sub-20 ms API latency.
+- **Cold path** — persist raw and curated history in Delta Lake for replay, research, and backtesting.
+- **Agentic ops** — controlled reliability tools via MCP with RAG-backed context from docs and runbooks.
+- **Research intelligence** — arXiv papers, crypto news, and SEC filings extracted into structured insights and surfaced in the dashboard and API.
 
-## Target Architecture
+## Architecture
 
 ```mermaid
-flowchart LR
-    subgraph Hot Path
+flowchart TD
+    subgraph HOT["🔴 Hot Path"]
         Feed[Market Feed / Simulator]
         Handler[Feed Handler]
-        Kafka[(Kafka)]
+        Kafka[(Kafka / Redpanda)]
         Flink[Flink Stream Processor]
         Redis[(Redis Hot Cache)]
         API[WebSocket / REST API]
@@ -22,27 +23,39 @@ flowchart LR
         Feed --> Handler --> Kafka --> Flink --> Redis --> API --> UI
     end
 
-    subgraph Cold Path
+    subgraph COLD["🟡 Cold Path"]
         Kafka --> Bronze[Delta Bronze]
         Bronze --> Silver[Delta Silver]
         Silver --> Gold[Delta Gold]
-        Gold --> Research[Research Queries / Backtests]
+        Gold --> Backtests[Research Queries / Backtests]
     end
 
-    subgraph Agentic Ops Path
+    subgraph OPS["🔵 Agentic Ops"]
         Docs[Docs + Runbooks]
         Metrics[Metrics + Incidents]
         Vector[(Postgres + pgvector)]
         MCP[MCP Ops Server]
-        Tools[Freshness / Replay / Lineage Tools]
+        Tools[Freshness / Replay / Lineage / Research Tools]
 
         Docs --> Vector
         Metrics --> Vector
-        Vector --> MCP
-        MCP --> Tools
+        Vector --> MCP --> Tools
         Tools --> Kafka
         Tools --> Redis
         Tools --> Gold
+    end
+
+    subgraph RESEARCH["🟢 Research Intelligence"]
+        Sources[arXiv / RSS / EDGAR]
+        Ingestor[Research Ingestor]
+        Extract["Extractor (rule-based | Claude)"]
+        Digest[(Redis Digest Cache)]
+
+        Sources --> Ingestor --> Extract
+        Extract --> Vector
+        Extract --> Digest
+        Digest --> API
+        Digest --> UI
     end
 ```
 
@@ -55,7 +68,8 @@ flowchart LR
 | `services/stream-processor` | Owns Flink jobs for top-of-book, bars, rolling metrics, freshness, and alerts. |
 | `services/market-data-api` | Serves Redis-backed live state through WebSocket and REST APIs. |
 | `services/mcp-ops-server` | Exposes controlled MCP tools for reliability diagnostics and replay operations. |
-| `apps/trader-dashboard` | Frontend for live market state, latency, charts, and alerts. |
+| `market_platform/research` | Research intelligence pipeline: arXiv/RSS/EDGAR sources, extraction, digest cache. |
+| `apps/trader-dashboard` | Frontend for live market state, latency, charts, alerts, and research insights. |
 | `lakehouse` | Databricks, Delta Lake, Spark jobs, and bronze/silver/gold table design. |
 | `contracts` | Versioned event schemas, Kafka topic contracts, and API payload contracts. |
 | `infra` | Local dependency stack, Kubernetes notes, and cloud infrastructure placeholders. |
@@ -291,6 +305,31 @@ Validate production artifacts locally:
 ```
 
 Full production status and remaining runtime gates are tracked in `docs/production-readiness.md`.
+
+## Research Intelligence
+
+Iteration 7 adds a QuantMind-style research pipeline as a **cold-path service** that never touches the hot path: arXiv papers, crypto news RSS, and SEC EDGAR filings are fetched on a poll loop, extracted into structured insights (summary, symbols, tags, sentiment, entities), and surfaced through the dashboard, REST API, and MCP tools.
+
+- Extraction is dual-mode: a free, deterministic rule-based extractor (default) and an opt-in Claude extractor via `ANTHROPIC_API_KEY`, with a hard daily budget cap that falls back to rule-based on exhaustion.
+- The API reads **only the Redis digest cache** (`md:research:*`, 24h TTL) — Postgres and the LLM are never in the request path, so `/research/{symbol}` has the same latency profile as `/latest/{symbol}` and works in Vercel demo mode.
+- The `research-ingestor` runs as an isolated container; it can crash with zero impact on quotes and trades.
+
+Run it offline from the committed fixture (no keys, no network):
+
+```bash
+docker compose -f infra/docker-compose.yml --profile research-replay up --build research-replay redis
+curl http://localhost:8000/research/BTC-USD
+```
+
+Or live (arXiv + RSS, keyless):
+
+```bash
+docker compose -f infra/docker-compose.yml --profile research up --build
+```
+
+New MCP tools: `research_search`, `symbol_research_context` (market metrics + research citations in one answer), and `research_digest`. Each dashboard symbol card gains a collapsible Research panel refreshed every 60 seconds.
+
+Quick start, configuration reference, and the LLM cost table are in `docs/research-intelligence.md`; the architecture decisions are recorded in `docs/decisions/research-intelligence.md`.
 
 ## Positioning
 
