@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ResearchInsight",
+  "description": "Structured insight extracted from a research document.",
+  "type": "object",
+  "required": [
+    "schema_version", "doc_id", "summary", "symbols", "tags",
+    "sentiment", "entities", "extractor", "source_uri", "title",
+    "published_time", "extracted_time"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"type": "string", "const": "1.0"},
+    "doc_id": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "summary": {
+      "type": "string",
+      "description": "2-3 sentence summary of the document",
+      "minLength": 1
+    },
+    "symbols": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Watchlist symbols mentioned; only symbols from the configured symbol map"
+    },
+    "tags": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Topic tags e.g. regulation, etf-flows, defi"
+    },
+    "sentiment": {
+      "type": "string",
+      "enum": ["bullish", "bearish", "neutral"]
+    },
+    "entities": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Named entities: organizations, people, products"
+    },
+    "extractor": {
+      "type": "string",
+      "enum": ["rule_based", "claude"]
+    },
+    "source": {
+      "type": "string",
+      "enum": ["arxiv", "rss", "edgar", "replay"]
+    },
+    "source_uri": {"type": "string", "format": "uri"},
+    "title": {"type": "string", "minLength": 1},
+    "published_time": {"type": "string", "format": "date-time"},
+    "extracted_time": {"type": "string", "format": "date-time"}
+  }
+}

@@ -39,3 +39,17 @@ spec:
     - name: http
       port: 8010
       targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: research-ingestor
+  namespace: market-data
+spec:
+  type: ClusterIP
+  selector:
+    app: research-ingestor
+  ports:
+    - name: health
+      port: 8030
+      targetPort: health

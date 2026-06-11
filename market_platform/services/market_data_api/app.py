@@ -15,7 +15,17 @@ from fastapi.staticfiles import StaticFiles
 from redis.asyncio import Redis
 
 from market_platform.config import API_KEYS, CORS_ORIGINS, REDIS_URL, WS_MAX_CONNECTIONS
-from market_platform.redis_keys import active_symbols, alerts, bar_1s, freshness, latest_quote, metrics, top_of_book
+from market_platform.redis_keys import (
+    active_symbols,
+    alerts,
+    bar_1s,
+    freshness,
+    latest_quote,
+    metrics,
+    research_digest,
+    research_symbol,
+    top_of_book,
+)
 from market_platform.time import utc_now_iso
 
 STATIC_DIR = Path(__file__).resolve().parents[3] / "apps" / "trader-dashboard" / "static"
@@ -179,7 +189,85 @@ def demo_redis() -> DemoRedis:
             }
         )
     ]
+    # Seed research insights for demo mode
+    _seed_demo_research(redis)
     return redis
+
+
+def _seed_demo_research(redis: DemoRedis) -> None:
+    now = utc_now_iso()
+    btc_insights = [
+        {
+            "schema_version": "1.0",
+            "doc_id": "sha256:btc001",
+            "summary": "Bitcoin spot ETF products recorded combined inflows of $1.4B, the highest since launch. Institutional appetite for regulated BTC exposure is growing.",
+            "symbols": ["BTC-USD"],
+            "tags": ["etf-flows", "institutional"],
+            "sentiment": "bullish",
+            "entities": ["BlackRock", "Fidelity", "Bitcoin"],
+            "extractor": "rule_based",
+            "source": "rss",
+            "source_uri": "https://www.coindesk.com/markets/2026/06/05/bitcoin-spot-etf-flows-hit-record-high/",
+            "title": "Bitcoin Spot ETF Flows Hit Record High",
+            "published_time": "2026-06-05T16:00:00+00:00",
+            "extracted_time": now,
+        },
+        {
+            "schema_version": "1.0",
+            "doc_id": "sha256:btc002",
+            "summary": "Deep reinforcement learning framework for dynamic portfolio allocation across Bitcoin and Ethereum outperforms equal-weight and Markowitz baselines by 23% Sharpe ratio.",
+            "symbols": ["BTC-USD", "ETH-USD"],
+            "tags": ["research"],
+            "sentiment": "neutral",
+            "entities": ["Bitcoin", "Ethereum"],
+            "extractor": "rule_based",
+            "source": "arxiv",
+            "source_uri": "https://arxiv.org/abs/2405.12345",
+            "title": "Deep Reinforcement Learning for Cryptocurrency Portfolio Optimization",
+            "published_time": "2026-06-01T12:00:00+00:00",
+            "extracted_time": now,
+        },
+    ]
+    eth_insights = [
+        {
+            "schema_version": "1.0",
+            "doc_id": "sha256:eth001",
+            "summary": "Ethereum gas fees dropped 90% after Dencun upgrade. Layer-2 networks now settle blobs at sub-cent costs, reducing deflationary pressure on ETH.",
+            "symbols": ["ETH-USD"],
+            "tags": ["layer2"],
+            "sentiment": "bullish",
+            "entities": ["Ethereum", "Arbitrum", "Optimism"],
+            "extractor": "rule_based",
+            "source": "rss",
+            "source_uri": "https://cointelegraph.com/news/ethereum-upgrade-dencun-impact-fees",
+            "title": "Ethereum Gas Fees Drop 90% After Dencun Upgrade",
+            "published_time": "2026-06-06T10:00:00+00:00",
+            "extracted_time": now,
+        },
+    ]
+    sol_insights = [
+        {
+            "schema_version": "1.0",
+            "doc_id": "sha256:sol001",
+            "summary": "Solana DePIN projects raised $500M in Q2 2026. Total locked value on Solana surpassed $15 billion.",
+            "symbols": ["SOL-USD"],
+            "tags": ["institutional"],
+            "sentiment": "bullish",
+            "entities": ["Solana"],
+            "extractor": "rule_based",
+            "source": "rss",
+            "source_uri": "https://decrypt.co/news/solana-depin-growth-2026",
+            "title": "Solana DePIN Projects Attract $500M in New Funding",
+            "published_time": "2026-06-07T14:00:00+00:00",
+            "extracted_time": now,
+        },
+    ]
+    redis.values[research_symbol("BTC-USD")] = json.dumps(btc_insights)
+    redis.values[research_symbol("ETH-USD")] = json.dumps(eth_insights)
+    redis.values[research_symbol("SOL-USD")] = json.dumps(sol_insights)
+    digest = btc_insights + eth_insights + sol_insights
+    digest.sort(key=lambda x: x["published_time"], reverse=True)
+    redis.values[research_digest()] = json.dumps(digest[:20])
 
 
 async def redis_client() -> Redis:
@@ -292,6 +380,24 @@ async def live_snapshot(request: Request) -> dict[str, Any]:
     """One live frame over REST, for hosts without WebSocket support (e.g. Vercel)."""
     _check_auth(request)
     return await live_frame(await get_redis())
+
+
+@app.get("/research/digest")
+async def get_research_digest(request: Request) -> dict[str, Any]:
+    """Latest cross-symbol research insights (Redis cache, ≤20 entries, TTL 24h)."""
+    _check_auth(request)
+    redis = await get_redis()
+    raw = await redis.get(research_digest())
+    return {"insights": json.loads(raw) if raw else []}
+
+
+@app.get("/research/{symbol}")
+async def get_research_symbol(symbol: str, request: Request) -> dict[str, Any]:
+    """Latest research insights for a symbol (Redis cache, ≤10 entries, TTL 24h)."""
+    _check_auth(request)
+    redis = await get_redis()
+    raw = await redis.get(research_symbol(symbol.upper()))
+    return {"symbol": symbol.upper(), "insights": json.loads(raw) if raw else []}
 
 
 @app.websocket("/ws/live")

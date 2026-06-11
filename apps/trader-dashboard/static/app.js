@@ -3,9 +3,38 @@ const connection = document.querySelector("#connection");
 const symbolCount = document.querySelector("#symbol-count");
 const obsidianLink = document.querySelector("#obsidian-link");
 
+// Research panel state: symbol → insight[]
+let researchBySymbol = {};
+
 function money(value) {
   if (value === undefined || value === null) return "-";
   return Number(value).toFixed(2);
+}
+
+function sentimentClass(s) {
+  if (s === "bullish") return "sentiment-bullish";
+  if (s === "bearish") return "sentiment-bearish";
+  return "sentiment-neutral";
+}
+
+function renderResearch(symbol) {
+  const insights = (researchBySymbol[symbol] || []).slice(0, 3);
+  if (!insights.length) return "";
+  const items = insights.map(i => `
+    <div class="research-item">
+      <div class="research-title">
+        <a href="${i.source_uri}" target="_blank" rel="noopener">${i.title}</a>
+        <span class="sentiment ${sentimentClass(i.sentiment)}">${i.sentiment}</span>
+      </div>
+      <div class="research-summary">${i.summary}</div>
+    </div>
+  `).join("");
+  return `
+    <details class="research-panel">
+      <summary>Research <span class="research-count">${insights.length}</span></summary>
+      ${items}
+    </details>
+  `;
 }
 
 function render(snapshot) {
@@ -32,6 +61,7 @@ function render(snapshot) {
       <div class="row"><span class="label">Volatility</span><span class="value">${metrics.volatility_bps ?? "-"} bps</span></div>
       <div class="row"><span class="label">Freshness</span><span class="value">${fresh.freshness_lag_ms ?? "-"} ms</span></div>
       ${alert ? `<div class="alerts">${alert.severity}: ${alert.message}</div>` : ""}
+      ${renderResearch(snapshot.symbol)}
     </article>
   `;
 }
@@ -104,5 +134,28 @@ function connect() {
   };
 }
 
+const researchUrl = apiKey ? `/research/digest?api_key=${encodeURIComponent(apiKey)}` : "/research/digest";
+
+async function pollResearch() {
+  try {
+    const response = await fetch(researchUrl);
+    if (response.ok) {
+      const data = await response.json();
+      const bySymbol = {};
+      for (const insight of (data.insights || [])) {
+        for (const sym of (insight.symbols || [])) {
+          if (!bySymbol[sym]) bySymbol[sym] = [];
+          bySymbol[sym].push(insight);
+        }
+      }
+      researchBySymbol = bySymbol;
+    }
+  } catch {
+    // non-fatal: research panel stays blank until next poll
+  }
+  setTimeout(pollResearch, 60000);
+}
+
 loadObsidianProject();
+pollResearch();
 connect();

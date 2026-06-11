@@ -23,3 +23,6 @@ images:
   - name: us-docker.pkg.dev/PROJECT_ID/market-data/mcp-ops-server
     newName: us-docker.pkg.dev/PROJECT_ID/market-data/mcp-ops-server
     newTag: latest
+  - name: us-docker.pkg.dev/PROJECT_ID/market-data/research-ingestor
+    newName: us-docker.pkg.dev/PROJECT_ID/market-data/research-ingestor
+    newTag: latest

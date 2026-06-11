@@ -204,5 +204,44 @@ services:
       - redpanda
     restart: unless-stopped
 
+  research-ingestor:
+    profiles: ["research"]
+    build:
+      context: ..
+      dockerfile: infra/python-service.Dockerfile
+    command: ["python", "-m", "market_platform.services.research_ingestor"]
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      RAG_POSTGRES_DSN: ${RAG_POSTGRES_DSN:-}
+      RESEARCH_SOURCES: ${RESEARCH_SOURCES:-arxiv,rss}
+      RESEARCH_POLL_SECONDS: ${RESEARCH_POLL_SECONDS:-900}
+      RESEARCH_RSS_FEEDS: ${RESEARCH_RSS_FEEDS:-}
+      RESEARCH_EXTRACTOR: ${RESEARCH_EXTRACTOR:-auto}
+      RESEARCH_LLM_MODEL: ${RESEARCH_LLM_MODEL:-claude-opus-4-8}
+      RESEARCH_LLM_DAILY_BUDGET_USD: ${RESEARCH_LLM_DAILY_BUDGET_USD:-1.00}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      RESEARCH_EDGAR_USER_AGENT: ${RESEARCH_EDGAR_USER_AGENT:-}
+    ports:
+      - "8030:8030"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  research-replay:
+    profiles: ["research-replay"]
+    build:
+      context: ..
+      dockerfile: infra/python-service.Dockerfile
+    command: ["python", "-m", "market_platform.services.research_ingestor"]
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      RESEARCH_SOURCES: replay
+      RESEARCH_EXTRACTOR: rule_based
+      RESEARCH_REPLAY_FILE: /app/market_platform/fixtures/research-sample.jsonl
+      RESEARCH_TIMEOUT_SECONDS: ${RESEARCH_TIMEOUT_SECONDS:-30}
+    depends_on:
+      - redis
+    restart: "no"
+
 volumes:
   postgres-data:

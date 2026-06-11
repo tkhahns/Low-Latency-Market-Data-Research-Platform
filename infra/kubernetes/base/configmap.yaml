@@ -12,3 +12,9 @@ data:
   DATABRICKS_SCHEMA: research
   LAKEHOUSE_BASE_PATH: dbfs:/prod/low_latency_market_data_platform/delta
   LAKEHOUSE_CHECKPOINT_PATH: dbfs:/prod/low_latency_market_data_platform/checkpoints
+  RESEARCH_SOURCES: arxiv,rss
+  RESEARCH_POLL_SECONDS: "900"
+  RESEARCH_EXTRACTOR: auto
+  RESEARCH_LLM_MODEL: claude-opus-4-8
+  RESEARCH_LLM_DAILY_BUDGET_USD: "1.00"
+  RESEARCH_INGESTOR_HEALTH_PORT: "8030"

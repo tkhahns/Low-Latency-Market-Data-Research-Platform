@@ -4,7 +4,17 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
-from market_platform.redis_keys import active_symbols, alerts, bar_1s, freshness, latest_quote, metrics, top_of_book
+from market_platform.redis_keys import (
+    active_symbols,
+    alerts,
+    bar_1s,
+    freshness,
+    latest_quote,
+    metrics,
+    research_digest,
+    research_symbol,
+    top_of_book,
+)
 from market_platform.services.market_data_api.app import _rate_buckets, app, demo_redis
 
 
@@ -196,3 +206,107 @@ def test_live_snapshot_requires_api_key_when_configured(with_api_keys):
 
     assert client.get("/live/snapshot").status_code == 401
     assert client.get("/live/snapshot?api_key=test-key-1").status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Research endpoints
+# ---------------------------------------------------------------------------
+
+
+def test_research_symbol_returns_empty_when_no_data():
+    install_fake_redis()
+    client = TestClient(app)
+
+    resp = client.get("/research/AAPL")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["symbol"] == "AAPL"
+    assert body["insights"] == []
+
+
+def test_research_digest_returns_empty_when_no_data():
+    install_fake_redis()
+    client = TestClient(app)
+
+    resp = client.get("/research/digest")
+    assert resp.status_code == 200
+    assert resp.json()["insights"] == []
+
+
+def test_research_symbol_returns_seeded_data():
+    redis = install_fake_redis()
+    sample_insight = {
+        "schema_version": "1.0",
+        "doc_id": "sha256:test001",
+        "summary": "Bitcoin ETF inflows hit record.",
+        "symbols": ["BTC-USD"],
+        "tags": ["etf-flows"],
+        "sentiment": "bullish",
+        "entities": ["BlackRock"],
+        "extractor": "rule_based",
+        "source": "rss",
+        "source_uri": "https://example.com",
+        "title": "BTC ETF record",
+        "published_time": "2026-06-05T00:00:00+00:00",
+        "extracted_time": "2026-06-05T01:00:00+00:00",
+    }
+    redis.values[research_symbol("BTC-USD")] = json.dumps([sample_insight])
+    app.state.redis = redis
+    client = TestClient(app)
+
+    resp = client.get("/research/BTC-USD")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["symbol"] == "BTC-USD"
+    assert len(body["insights"]) == 1
+    assert body["insights"][0]["sentiment"] == "bullish"
+
+
+def test_research_digest_returns_seeded_data():
+    redis = install_fake_redis()
+    sample_insight = {
+        "schema_version": "1.0",
+        "doc_id": "sha256:digest001",
+        "summary": "Cross-symbol digest entry.",
+        "symbols": ["ETH-USD"],
+        "tags": ["defi"],
+        "sentiment": "neutral",
+        "entities": [],
+        "extractor": "rule_based",
+        "source": "arxiv",
+        "source_uri": "https://arxiv.org/abs/test",
+        "title": "ETH paper",
+        "published_time": "2026-06-06T00:00:00+00:00",
+        "extracted_time": "2026-06-06T01:00:00+00:00",
+    }
+    redis.values[research_digest()] = json.dumps([sample_insight])
+    app.state.redis = redis
+    client = TestClient(app)
+
+    resp = client.get("/research/digest")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body["insights"]) == 1
+    assert body["insights"][0]["symbols"] == ["ETH-USD"]
+
+
+def test_demo_mode_research_panel_seeded():
+    app.state.redis = demo_redis()
+    client = TestClient(app)
+
+    btc = client.get("/research/BTC-USD").json()
+    assert len(btc["insights"]) >= 1
+    assert any(i["sentiment"] == "bullish" for i in btc["insights"])
+
+    digest = client.get("/research/digest").json()
+    assert len(digest["insights"]) >= 3
+
+
+def test_research_requires_api_key_when_configured(with_api_keys):
+    install_fake_redis()
+    client = TestClient(app, raise_server_exceptions=False)
+
+    assert client.get("/research/BTC-USD").status_code == 401
+    assert client.get("/research/digest").status_code == 401
+    assert client.get("/research/BTC-USD?api_key=test-key-1").status_code == 200
+    assert client.get("/research/digest?api_key=test-key-1").status_code == 200

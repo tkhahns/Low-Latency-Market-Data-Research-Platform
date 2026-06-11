@@ -24,3 +24,16 @@ def alerts(symbol: str) -> str:
 
 def active_symbols() -> str:
     return "md:symbols:active"
+
+
+def research_symbol(symbol: str) -> str:
+    return f"md:research:{symbol.upper()}"
+
+
+def research_digest() -> str:
+    return "md:research:digest"
+
+
+def research_llm_spend(date_str: str) -> str:
+    """date_str: YYYY-MM-DD"""
+    return f"md:research:llm_spend:{date_str}"

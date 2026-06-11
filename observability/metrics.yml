@@ -24,3 +24,23 @@ metrics:
     type: counter
     labels: [tool_name, status]
     description: MCP tool call count by result status.
+  - name: research_docs_ingested_total
+    type: counter
+    labels: [source]
+    description: Number of research documents ingested per source.
+  - name: research_insights_extracted_total
+    type: counter
+    labels: [extractor]
+    description: Number of insights extracted, by extractor type.
+  - name: research_source_errors_total
+    type: counter
+    labels: [source]
+    description: Number of per-source fetch errors.
+  - name: research_llm_spend_usd_total
+    type: counter
+    labels: [model]
+    description: Cumulative LLM spend in USD.
+  - name: research_ingest_lag_seconds
+    type: gauge
+    labels: [source]
+    description: Seconds since the last successful ingest cycle per source.
