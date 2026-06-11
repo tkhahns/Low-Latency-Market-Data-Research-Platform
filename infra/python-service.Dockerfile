@@ -8,6 +8,6 @@ COPY contracts /app/contracts
 COPY docs /app/docs
 COPY lakehouse/contracts /app/lakehouse/contracts
 COPY scripts /app/scripts
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir ".[research]"
 
 ENV PYTHONUNBUFFERED=1
