@@ -29,8 +29,11 @@ from market_platform.redis_keys import (
 from market_platform.time import utc_now_iso
 
 STATIC_DIR = Path(__file__).resolve().parents[3] / "apps" / "trader-dashboard" / "static"
+REACT_DIST_DIR = Path(__file__).resolve().parents[3] / "apps" / "trader-dashboard" / "dist"
 OBSIDIAN_VAULT_DIR = Path(__file__).resolve().parents[3] / "obsidian" / "Market Data Research Vault"
 OBSIDIAN_HOME_NOTE = OBSIDIAN_VAULT_DIR / "Home.md"
+
+_REACT_BUILD = (REACT_DIST_DIR / "index.html").exists()
 
 app = FastAPI(title="Market Data API", version="0.1.0")
 
@@ -42,6 +45,8 @@ app.add_middleware(
 )
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+if _REACT_BUILD:
+    app.mount("/assets", StaticFiles(directory=REACT_DIST_DIR / "assets"), name="react-assets")
 
 # --- Rate limiting (token bucket, in-process) ---
 
@@ -320,6 +325,8 @@ async def shutdown() -> None:
 
 @app.get("/")
 async def dashboard() -> FileResponse:
+    if _REACT_BUILD:
+        return FileResponse(REACT_DIST_DIR / "index.html")
     return FileResponse(STATIC_DIR / "index.html")
 
 
