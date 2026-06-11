@@ -1,19 +1,20 @@
 # Low-Latency Market Data & Research Platform
 
-The project is organized around three paths:
+Four integrated layers, each independently deployable:
 
-- Hot path: ingest, process, cache, and serve live market data with low latency.
-- Cold path: persist raw and curated history for replay, research, and backtesting.
-- Agentic ops path: expose controlled reliability tools through MCP with RAG-backed context.
+- **Hot path** — ingest, process, cache, and serve live market data with sub-20 ms API latency.
+- **Cold path** — persist raw and curated history in Delta Lake for replay, research, and backtesting.
+- **Agentic ops** — controlled reliability tools via MCP with RAG-backed context from docs and runbooks.
+- **Research intelligence** — arXiv papers, crypto news, and SEC filings extracted into structured insights and surfaced in the dashboard and API.
 
-## Target Architecture
+## Architecture
 
 ```mermaid
-flowchart LR
-    subgraph Hot Path
+flowchart TD
+    subgraph HOT["🔴 Hot Path"]
         Feed[Market Feed / Simulator]
         Handler[Feed Handler]
-        Kafka[(Kafka)]
+        Kafka[(Kafka / Redpanda)]
         Flink[Flink Stream Processor]
         Redis[(Redis Hot Cache)]
         API[WebSocket / REST API]
@@ -22,37 +23,39 @@ flowchart LR
         Feed --> Handler --> Kafka --> Flink --> Redis --> API --> UI
     end
 
-    subgraph Cold Path
+    subgraph COLD["🟡 Cold Path"]
         Kafka --> Bronze[Delta Bronze]
         Bronze --> Silver[Delta Silver]
         Silver --> Gold[Delta Gold]
-        Gold --> Research[Research Queries / Backtests]
+        Gold --> Backtests[Research Queries / Backtests]
     end
 
-    subgraph Agentic Ops Path
+    subgraph OPS["🔵 Agentic Ops"]
         Docs[Docs + Runbooks]
         Metrics[Metrics + Incidents]
         Vector[(Postgres + pgvector)]
         MCP[MCP Ops Server]
-        Tools[Freshness / Replay / Lineage Tools]
+        Tools[Freshness / Replay / Lineage / Research Tools]
 
         Docs --> Vector
         Metrics --> Vector
-        Vector --> MCP
-        MCP --> Tools
+        Vector --> MCP --> Tools
         Tools --> Kafka
         Tools --> Redis
         Tools --> Gold
     end
 
-    subgraph Research Intelligence
+    subgraph RESEARCH["🟢 Research Intelligence"]
         Sources[arXiv / RSS / EDGAR]
         Ingestor[Research Ingestor]
-        Extract[Extractor: rule-based or Claude]
+        Extract["Extractor (rule-based | Claude)"]
+        Digest[(Redis Digest Cache)]
 
         Sources --> Ingestor --> Extract
         Extract --> Vector
-        Extract --> Redis
+        Extract --> Digest
+        Digest --> API
+        Digest --> UI
     end
 ```
 
