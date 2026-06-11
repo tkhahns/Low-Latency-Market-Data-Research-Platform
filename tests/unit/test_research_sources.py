@@ -20,10 +20,9 @@ FIXTURE = Path(__file__).resolve().parents[2] / "market_platform" / "fixtures" /
 
 
 def test_replay_loads_all_docs(tmp_path):
-    # Replay from the committed fixture
     import asyncio
     source = ReplaySource(FIXTURE)
-    docs, cursor = asyncio.get_event_loop().run_until_complete(source.fetch_since(None))
+    docs, cursor = asyncio.run(source.fetch_since(None))
     assert len(docs) >= 10
     assert cursor is not None
     for doc in docs:
@@ -36,8 +35,8 @@ def test_replay_loads_all_docs(tmp_path):
 def test_replay_cursor_dedup():
     import asyncio
     source = ReplaySource(FIXTURE)
-    docs1, cursor1 = asyncio.get_event_loop().run_until_complete(source.fetch_since(None))
-    docs2, cursor2 = asyncio.get_event_loop().run_until_complete(source.fetch_since(cursor1))
+    docs1, cursor1 = asyncio.run(source.fetch_since(None))
+    docs2, cursor2 = asyncio.run(source.fetch_since(cursor1))
     assert len(docs2) == 0  # All docs are at or before cursor1
     assert cursor2 == cursor1
 
@@ -45,7 +44,7 @@ def test_replay_cursor_dedup():
 def test_replay_missing_file(tmp_path):
     import asyncio
     source = ReplaySource(tmp_path / "nonexistent.jsonl")
-    docs, cursor = asyncio.get_event_loop().run_until_complete(source.fetch_since(None))
+    docs, cursor = asyncio.run(source.fetch_since(None))
     assert docs == []
     assert cursor is None
 
@@ -73,7 +72,7 @@ def test_replay_custom_fixture(tmp_path):
     ]
     fixture.write_text("\n".join(json.dumps(r) for r in rows))
     source = ReplaySource(fixture)
-    docs, cursor = asyncio.get_event_loop().run_until_complete(source.fetch_since(None))
+    docs, cursor = asyncio.run(source.fetch_since(None))
     assert len(docs) == 2
     assert cursor == "2026-06-02T12:00:00+00:00"
 

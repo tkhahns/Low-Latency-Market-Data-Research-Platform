@@ -28,7 +28,7 @@ def make_doc(body: str, title: str = "Test", source: str = "rss") -> ResearchDoc
 
 def test_rule_based_bullish():
     doc = make_doc("Bitcoin surged to record highs as institutional inflows accelerated.")
-    insight = asyncio.get_event_loop().run_until_complete(RuleBasedExtractor().extract(doc))
+    insight = asyncio.run(RuleBasedExtractor().extract(doc))
     assert insight.sentiment == "bullish"
     assert "BTC-USD" in insight.symbols
     assert insight.extractor == "rule_based"
@@ -37,14 +37,14 @@ def test_rule_based_bullish():
 
 def test_rule_based_bearish():
     doc = make_doc("Ethereum prices crashed after a major exploit drained liquidity.")
-    insight = asyncio.get_event_loop().run_until_complete(RuleBasedExtractor().extract(doc))
+    insight = asyncio.run(RuleBasedExtractor().extract(doc))
     assert insight.sentiment == "bearish"
     assert "ETH-USD" in insight.symbols
 
 
 def test_rule_based_neutral():
     doc = make_doc("Researchers published a new paper on cryptocurrency market microstructure.", title="Crypto paper")
-    insight = asyncio.get_event_loop().run_until_complete(RuleBasedExtractor().extract(doc))
+    insight = asyncio.run(RuleBasedExtractor().extract(doc))
     assert insight.sentiment in ("bullish", "bearish", "neutral")
     assert insight.extractor == "rule_based"
 
@@ -52,26 +52,26 @@ def test_rule_based_neutral():
 def test_rule_based_summary_uses_first_sentences():
     body = "First sentence. Second sentence. Third sentence."
     doc = make_doc(body)
-    insight = asyncio.get_event_loop().run_until_complete(RuleBasedExtractor().extract(doc))
+    insight = asyncio.run(RuleBasedExtractor().extract(doc))
     assert "First sentence" in insight.summary
     assert insight.summary.count("sentence") <= 2
 
 
 def test_rule_based_tags_regulation():
     doc = make_doc("The SEC approved a new framework for broker-dealers.")
-    insight = asyncio.get_event_loop().run_until_complete(RuleBasedExtractor().extract(doc))
+    insight = asyncio.run(RuleBasedExtractor().extract(doc))
     assert "regulation" in insight.tags or "filing" in insight.tags
 
 
 def test_rule_based_tags_etf():
     doc = make_doc("Bitcoin ETF inflows hit a record high today.")
-    insight = asyncio.get_event_loop().run_until_complete(RuleBasedExtractor().extract(doc))
+    insight = asyncio.run(RuleBasedExtractor().extract(doc))
     assert "etf-flows" in insight.tags
 
 
 def test_rule_based_insight_schema():
     doc = make_doc("Solana DePIN projects raised $500M in Q2 2026.")
-    insight = asyncio.get_event_loop().run_until_complete(RuleBasedExtractor().extract(doc))
+    insight = asyncio.run(RuleBasedExtractor().extract(doc))
     assert insight.schema_version == "1.0" if hasattr(insight, "schema_version") else True
     d = insight.to_dict()
     assert d["schema_version"] == "1.0"
@@ -139,7 +139,7 @@ def test_claude_extractor_parses_valid_json():
     extractor._client = mock_client
 
     doc = make_doc("Bitcoin ETF inflows hit a record high as BlackRock reported strong demand.")
-    insight = asyncio.get_event_loop().run_until_complete(extractor.extract(doc))
+    insight = asyncio.run(extractor.extract(doc))
 
     assert insight.extractor == "claude"
     assert insight.summary == "Claude summary here."
@@ -167,7 +167,7 @@ def test_claude_extractor_falls_back_on_bad_json():
     extractor._client = mock_client
 
     doc = make_doc("Bitcoin price soared to new highs.")
-    insight = asyncio.get_event_loop().run_until_complete(extractor.extract(doc))
+    insight = asyncio.run(extractor.extract(doc))
     assert insight.extractor == "rule_based"
 
 
@@ -187,5 +187,5 @@ def test_claude_extractor_falls_back_on_api_error():
     extractor._client = mock_client
 
     doc = make_doc("Ethereum rally follows protocol upgrade.")
-    insight = asyncio.get_event_loop().run_until_complete(extractor.extract(doc))
+    insight = asyncio.run(extractor.extract(doc))
     assert insight.extractor == "rule_based"
