@@ -25,6 +25,11 @@ dev = [
   "pytest>=8.0.0",
   "ruff>=0.4.0",
 ]
+research = [
+  "anthropic>=0.92.0",
+  "feedparser>=6.0.0",
+  "httpx>=0.27.0",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

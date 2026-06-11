@@ -48,3 +48,26 @@ API_KEYS_RAW = env("API_KEYS", "")
 API_KEYS: set[str] = {k.strip() for k in API_KEYS_RAW.split(",") if k.strip()}
 WS_MAX_CONNECTIONS = env_int("WS_MAX_CONNECTIONS", 500)
 CORS_ORIGINS = [o.strip() for o in env("CORS_ORIGINS", "*").split(",") if o.strip()]
+
+# Research intelligence pipeline
+RESEARCH_SOURCES = [s.strip() for s in env("RESEARCH_SOURCES", "arxiv,rss").split(",") if s.strip()]
+RESEARCH_POLL_SECONDS = env_int("RESEARCH_POLL_SECONDS", 900)
+RESEARCH_RSS_FEEDS = [
+    f.strip()
+    for f in env(
+        "RESEARCH_RSS_FEEDS",
+        "https://feeds.feedburner.com/CoinDesk,"
+        "https://cointelegraph.com/rss,"
+        "https://decrypt.co/feed",
+    ).split(",")
+    if f.strip()
+]
+RESEARCH_SYMBOL_MAP_JSON = os.getenv("RESEARCH_SYMBOL_MAP")  # JSON override; None = use built-in
+RESEARCH_EXTRACTOR = env("RESEARCH_EXTRACTOR", "auto")  # auto | rule_based | claude
+RESEARCH_LLM_MODEL = env("RESEARCH_LLM_MODEL", "claude-opus-4-8")
+RESEARCH_LLM_DAILY_BUDGET_USD = env_float("RESEARCH_LLM_DAILY_BUDGET_USD", 1.00)
+RESEARCH_EDGAR_USER_AGENT = os.getenv("RESEARCH_EDGAR_USER_AGENT")  # "name email" format; None = edgar disabled
+RESEARCH_INGESTOR_HEALTH_PORT = env_int("RESEARCH_INGESTOR_HEALTH_PORT", 8030)
+RESEARCH_REPLAY_FILE = env("RESEARCH_REPLAY_FILE", "/app/market_platform/fixtures/research-sample.jsonl")
+RESEARCH_TIMEOUT_SECONDS_STR = os.getenv("RESEARCH_TIMEOUT_SECONDS")
+RESEARCH_TIMEOUT_SECONDS = float(RESEARCH_TIMEOUT_SECONDS_STR) if RESEARCH_TIMEOUT_SECONDS_STR else None

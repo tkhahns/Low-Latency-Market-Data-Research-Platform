@@ -202,3 +202,51 @@ spec:
             limits:
               cpu: "1"
               memory: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: research-ingestor
+  namespace: market-data
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: research-ingestor
+  template:
+    metadata:
+      labels:
+        app: research-ingestor
+    spec:
+      containers:
+        - name: research-ingestor
+          image: us-docker.pkg.dev/PROJECT_ID/market-data/research-ingestor:latest
+          command: ["python", "-m", "market_platform.services.research_ingestor"]
+          ports:
+            - containerPort: 8030
+              name: health
+          envFrom:
+            - configMapRef:
+                name: market-platform-config
+            - secretRef:
+                name: market-platform-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: health
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

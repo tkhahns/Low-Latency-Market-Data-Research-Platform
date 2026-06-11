@@ -9,7 +9,7 @@ import yaml
 
 from market_platform.ops.audit import JsonlAuditLog, audit_record
 from market_platform.ops.vector_store import EvidenceStore, SearchResult
-from market_platform.redis_keys import alerts, bar_1s, freshness, latest_quote, metrics, top_of_book
+from market_platform.redis_keys import alerts, bar_1s, freshness, latest_quote, metrics, research_digest, research_symbol, top_of_book
 
 
 AsyncRedisFactory = Callable[[], Awaitable[Any]]
@@ -196,6 +196,82 @@ class OpsTools:
             "required_columns": table_spec["required_columns"],
             "upstream": upstream_for(table),
             "sources": sources,
+        }
+
+    async def research_search(self, parameters: dict[str, Any]) -> dict[str, Any]:
+        query = required(parameters, "query")
+        limit = int(parameters.get("limit", 5))
+        results = self.evidence_store.search(query, limit=limit)
+        research_results = [r for r in results if r.source.source_type == "research"] or results
+        return {
+            "status": "ok",
+            "query": query,
+            "results": [
+                {
+                    "content": r.content,
+                    "score": r.source.score,
+                    "title": r.source.title,
+                    "source_uri": r.source.source_uri,
+                    "tags": r.metadata.get("tags", []),
+                    "indexed_at": r.metadata.get("indexed_at"),
+                }
+                for r in research_results
+            ],
+            "sources": [source_dict(r) for r in research_results],
+        }
+
+    async def symbol_research_context(self, parameters: dict[str, Any]) -> dict[str, Any]:
+        symbol = required(parameters, "symbol").upper()
+        redis_data = {}
+        insights = []
+
+        if self.redis_factory is not None:
+            redis = await self.redis_factory()
+            try:
+                fresh = await get_json(redis, freshness(symbol))
+                mkt = await get_json(redis, metrics(symbol))
+                raw_insights = await redis.get(research_symbol(symbol))
+                if raw_insights:
+                    insights = json.loads(raw_insights)
+                redis_data = {"freshness": fresh, "metrics": mkt}
+            finally:
+                close = getattr(redis, "aclose", None)
+                if close:
+                    await close()
+
+        sources = self.search_sources(f"{symbol} research analysis sentiment", limit=3)
+        return {
+            "status": "ok",
+            "symbol": symbol,
+            "market": redis_data,
+            "research": insights[:5],
+            "sources": sources,
+        }
+
+    async def research_digest(self, parameters: dict[str, Any]) -> dict[str, Any]:
+        hours = int(parameters.get("hours", 24))
+        if self.redis_factory is None:
+            return self.error("redis_unavailable", "Redis factory not configured.", [])
+
+        redis = await self.redis_factory()
+        try:
+            raw = await redis.get(research_digest())
+            all_insights = json.loads(raw) if raw else []
+        finally:
+            close = getattr(redis, "aclose", None)
+            if close:
+                await close()
+
+        from datetime import datetime, timedelta, timezone
+
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+        filtered = [i for i in all_insights if i.get("published_time", "") >= cutoff]
+        return {
+            "status": "ok",
+            "hours": hours,
+            "count": len(filtered),
+            "insights": filtered,
+            "sources": [],
         }
 
     def search_sources(self, query: str, limit: int = 5) -> list[dict[str, Any]]:

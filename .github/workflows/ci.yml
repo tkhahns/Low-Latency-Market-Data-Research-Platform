@@ -78,9 +78,16 @@ jobs:
         with:
           name: latency-report-${{ github.run_id }}
           path: perf.json
+      - name: Assert research insights populated (replay)
+        run: |
+          docker compose -f infra/docker-compose.yml --profile research-replay up --build \
+            --exit-code-from research-replay research-replay redis
+          sleep 2
+          curl -fsS http://localhost:8000/research/BTC-USD \
+            | python -c 'import json,sys; d=json.load(sys.stdin); assert len(d["insights"])>=1, f"No research insights: {d}"'
       - name: Dump logs on failure
         if: failure()
         run: docker compose -f infra/docker-compose.yml logs --tail=300
       - name: Tear down
         if: always()
-        run: docker compose -f infra/docker-compose.yml --profile replay down -v
+        run: docker compose -f infra/docker-compose.yml --profile replay --profile research-replay down -v

@@ -1,0 +1,31 @@
+groups:
+  - name: research-intelligence-health
+    rules:
+      - alert: ResearchIngestStalled
+        expr: max(research_ingest_lag_seconds) by (source) > 7200
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Research ingestor has not completed a successful cycle in 2+ hours"
+          description: "Source {{ $labels.source }} last successful ingest was {{ $value | humanizeDuration }} ago."
+          runbook: "docs/runbooks/research-ingest-stalled.md"
+
+      - alert: ResearchBudgetExhausted
+        expr: sum(increase(research_llm_spend_usd_total[24h])) > 0.9
+        for: 0m
+        labels:
+          severity: info
+        annotations:
+          summary: "Research LLM daily budget approaching limit"
+          description: "Daily LLM spend has reached ${{ $value | printf \"%.2f\" }}. Pipeline will fall back to rule-based extraction at the configured limit."
+
+      - alert: ResearchSourceErrorsHigh
+        expr: sum(increase(research_source_errors_total[1h])) by (source) > 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate from research source {{ $labels.source }}"
+          description: "{{ $value }} errors in the last hour from source {{ $labels.source }}."
+          runbook: "docs/runbooks/research-ingest-stalled.md"

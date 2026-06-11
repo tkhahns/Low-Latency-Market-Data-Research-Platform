@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ResearchDocument",
+  "description": "A raw document fetched from a research source before extraction.",
+  "type": "object",
+  "required": ["schema_version", "doc_id", "source", "source_uri", "title", "body", "published_time", "fetched_time"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"type": "string", "const": "1.0"},
+    "doc_id": {
+      "type": "string",
+      "description": "sha256 content hash — used for idempotent dedup",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "source": {
+      "type": "string",
+      "enum": ["arxiv", "rss", "edgar", "replay"]
+    },
+    "source_uri": {"type": "string", "format": "uri"},
+    "title": {"type": "string", "minLength": 1},
+    "body": {"type": "string", "description": "Plain text, parser-cleaned"},
+    "published_time": {"type": "string", "format": "date-time"},
+    "fetched_time": {"type": "string", "format": "date-time"}
+  }
+}

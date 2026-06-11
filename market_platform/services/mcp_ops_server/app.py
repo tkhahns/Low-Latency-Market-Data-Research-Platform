@@ -70,6 +70,9 @@ async def list_tools() -> dict[str, list[str]]:
             "compare_live_vs_replay",
             "summarize_incident",
             "lineage_lookup",
+            "research_search",
+            "symbol_research_context",
+            "research_digest",
         ]
     }
 
