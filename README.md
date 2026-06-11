@@ -44,6 +44,16 @@ flowchart LR
         Tools --> Redis
         Tools --> Gold
     end
+
+    subgraph Research Intelligence
+        Sources[arXiv / RSS / EDGAR]
+        Ingestor[Research Ingestor]
+        Extract[Extractor: rule-based or Claude]
+
+        Sources --> Ingestor --> Extract
+        Extract --> Vector
+        Extract --> Redis
+    end
 ```
 
 ## Repository Map
@@ -55,7 +65,8 @@ flowchart LR
 | `services/stream-processor` | Owns Flink jobs for top-of-book, bars, rolling metrics, freshness, and alerts. |
 | `services/market-data-api` | Serves Redis-backed live state through WebSocket and REST APIs. |
 | `services/mcp-ops-server` | Exposes controlled MCP tools for reliability diagnostics and replay operations. |
-| `apps/trader-dashboard` | Frontend for live market state, latency, charts, and alerts. |
+| `market_platform/research` | Research intelligence pipeline: arXiv/RSS/EDGAR sources, extraction, digest cache. |
+| `apps/trader-dashboard` | Frontend for live market state, latency, charts, alerts, and research insights. |
 | `lakehouse` | Databricks, Delta Lake, Spark jobs, and bronze/silver/gold table design. |
 | `contracts` | Versioned event schemas, Kafka topic contracts, and API payload contracts. |
 | `infra` | Local dependency stack, Kubernetes notes, and cloud infrastructure placeholders. |
@@ -291,6 +302,31 @@ Validate production artifacts locally:
 ```
 
 Full production status and remaining runtime gates are tracked in `docs/production-readiness.md`.
+
+## Research Intelligence
+
+Iteration 7 adds a QuantMind-style research pipeline as a **cold-path service** that never touches the hot path: arXiv papers, crypto news RSS, and SEC EDGAR filings are fetched on a poll loop, extracted into structured insights (summary, symbols, tags, sentiment, entities), and surfaced through the dashboard, REST API, and MCP tools.
+
+- Extraction is dual-mode: a free, deterministic rule-based extractor (default) and an opt-in Claude extractor via `ANTHROPIC_API_KEY`, with a hard daily budget cap that falls back to rule-based on exhaustion.
+- The API reads **only the Redis digest cache** (`md:research:*`, 24h TTL) — Postgres and the LLM are never in the request path, so `/research/{symbol}` has the same latency profile as `/latest/{symbol}` and works in Vercel demo mode.
+- The `research-ingestor` runs as an isolated container; it can crash with zero impact on quotes and trades.
+
+Run it offline from the committed fixture (no keys, no network):
+
+```bash
+docker compose -f infra/docker-compose.yml --profile research-replay up --build research-replay redis
+curl http://localhost:8000/research/BTC-USD
+```
+
+Or live (arXiv + RSS, keyless):
+
+```bash
+docker compose -f infra/docker-compose.yml --profile research up --build
+```
+
+New MCP tools: `research_search`, `symbol_research_context` (market metrics + research citations in one answer), and `research_digest`. Each dashboard symbol card gains a collapsible Research panel refreshed every 60 seconds.
+
+Quick start, configuration reference, and the LLM cost table are in `docs/research-intelligence.md`; the architecture decisions are recorded in `docs/decisions/research-intelligence.md`.
 
 ## Positioning
 
