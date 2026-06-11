@@ -8,8 +8,6 @@ from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 from xml.etree import ElementTree as ET
 
-import httpx
-
 from market_platform.research.models import ResearchDocument
 
 logger = logging.getLogger(__name__)
@@ -41,6 +39,7 @@ class ArxivSource:
             "max_results": self._max_results,
         }
 
+        import httpx  # optional dep — only needed when arxiv source is active
         async with httpx.AsyncClient(headers={"User-Agent": _USER_AGENT}, timeout=30.0) as client:
             await asyncio.sleep(_POLL_DELAY)
             resp = client.build_request("GET", _BASE_URL, params=params)
