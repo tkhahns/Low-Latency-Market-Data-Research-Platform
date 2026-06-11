@@ -10,8 +10,6 @@ from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 from xml.etree import ElementTree as ET
 
-import httpx
-
 from market_platform.research.models import ResearchDocument
 
 logger = logging.getLogger(__name__)
@@ -45,6 +43,7 @@ class EdgarSource:
             "Accept": "application/json",
         }
 
+        import httpx  # optional dep — only needed when edgar source is active
         async with httpx.AsyncClient(headers=headers, timeout=30.0) as client:
             try:
                 resp = await client.get(url)
