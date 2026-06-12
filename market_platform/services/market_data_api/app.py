@@ -314,6 +314,10 @@ def _seed_demo_research(redis: DemoRedis) -> None:
 async def redis_client() -> Redis:
     if os.getenv("MARKET_DATA_DEMO_MODE") == "1":
         return demo_redis()  # type: ignore[return-value]
+    if not os.environ.get("REDIS_URL"):
+        # No Redis configured — use seeded demo data so serverless deployments
+        # (e.g. Vercel) work out of the box without any environment variables.
+        return demo_redis()  # type: ignore[return-value]
     return Redis.from_url(REDIS_URL, decode_responses=True)
 
 
