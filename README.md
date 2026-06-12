@@ -1,13 +1,47 @@
 # Low-Latency Market Data & Research Platform
 
-Four integrated layers, each independently deployable:
+A quant data-infrastructure platform that ingests live market data, processes it with stateful
+streaming, serves it with sub-20 ms API latency, persists it into a Delta lakehouse for
+replay and backtesting, enriches it with structured research intelligence, and operates itself
+through controlled, RAG-backed agentic tools.
 
-- **Hot path** — ingest, process, cache, and serve live market data with sub-20 ms API latency.
-- **Cold path** — persist raw and curated history in Delta Lake for replay, research, and backtesting.
-- **Agentic ops** — controlled reliability tools via MCP with RAG-backed context from docs and runbooks.
-- **Research intelligence** — arXiv papers, crypto news, and SEC filings extracted into structured insights and surfaced in the dashboard and API.
+This is a **data platform project, not a trading strategy project** — it demonstrates
+streaming, lakehouse design, observability, replay, LLM-assisted research extraction, and
+controlled agentic operations.
 
-## Architecture
+---
+
+## Table of Contents
+
+- [System at a Glance](#system-at-a-glance)
+- [How Data Flows](#how-data-flows)
+- [Repository Map](#repository-map)
+- [Quick Start](#quick-start)
+- [Layer 1 — Hot Path](#layer-1--hot-path)
+- [Layer 2 — Cold Path Lakehouse](#layer-2--cold-path-lakehouse)
+- [Layer 3 — Research Intelligence](#layer-3--research-intelligence)
+- [Layer 4 — Agentic Ops](#layer-4--agentic-ops)
+- [Trader Dashboard](#trader-dashboard)
+- [API Reference](#api-reference)
+- [Deployment](#deployment)
+- [Observability & Operations](#observability--operations)
+- [Development & Testing](#development--testing)
+- [Performance](#performance)
+- [Design Principles](#design-principles)
+- [Documentation Index](#documentation-index)
+
+---
+
+## System at a Glance
+
+Four integrated layers, each independently deployable and isolated by design:
+
+| Layer | Role | Latency profile | Failure blast radius |
+| --- | --- | --- | --- |
+| 🔴 **Hot path** | Ingest → process → cache → serve live market data | Sub-20 ms reads | Core — protected by contracts, alerts, freshness SLOs |
+| 🟡 **Cold path** | Persist raw + curated history in Delta Lake | Batch | None on live serving — API never queries the lakehouse |
+| 🟢 **Research intelligence** | arXiv / RSS / EDGAR → structured insights | Poll loop (15 min default) | None — isolated container, Redis-cached reads only |
+| 🔵 **Agentic ops** | Controlled MCP reliability tools with RAG evidence | Interactive | Read-only diagnostics; replays are dry-run by default |
 
 ```mermaid
 flowchart TD
@@ -30,21 +64,6 @@ flowchart TD
         Gold --> Backtests[Research Queries / Backtests]
     end
 
-    subgraph OPS["🔵 Agentic Ops"]
-        Docs[Docs + Runbooks]
-        Metrics[Metrics + Incidents]
-        Vector[(Postgres + pgvector)]
-        MCP[MCP Ops Server]
-        Tools[Freshness / Replay / Lineage / Research Tools]
-
-        Docs --> Vector
-        Metrics --> Vector
-        Vector --> MCP --> Tools
-        Tools --> Kafka
-        Tools --> Redis
-        Tools --> Gold
-    end
-
     subgraph RESEARCH["🟢 Research Intelligence"]
         Sources[arXiv / RSS / EDGAR]
         Ingestor[Research Ingestor]
@@ -52,50 +71,110 @@ flowchart TD
         Digest[(Redis Digest Cache)]
 
         Sources --> Ingestor --> Extract
-        Extract --> Vector
         Extract --> Digest
         Digest --> API
         Digest --> UI
     end
+
+    subgraph OPS["🔵 Agentic Ops"]
+        Docs[Docs + Runbooks + Obsidian]
+        Metrics[Metrics + Incidents]
+        Vector[(Postgres + pgvector)]
+        MCP[MCP Ops Server]
+        Tools[Freshness / Replay / Lineage / Research Tools]
+
+        Docs --> Vector
+        Metrics --> Vector
+        Extract --> Vector
+        Vector --> MCP --> Tools
+        Tools --> Kafka
+        Tools --> Redis
+        Tools --> Gold
+    end
 ```
+
+---
+
+## How Data Flows
+
+### Hot path: a market event, end to end
+
+1. **Feed** — a pluggable source (`market_platform/feeds/`: synthetic, Coinbase WebSocket,
+   Databento, or deterministic file replay) emits raw exchange-style messages.
+2. **Feed handler** — normalizes raw messages into canonical, versioned events
+   (`contracts/events/*.schema.json`), validates sequence numbers, distinguishes feed-session
+   restarts from genuine gaps, and publishes detected gaps to `market.quality.alerts.v1`.
+3. **Kafka / Redpanda** — durable, replayable topic boundaries (`contracts/topics.md`):
+   raw → trades/quotes → derived state.
+4. **Stream processor** — stateful computation of top-of-book, 1-second bars, rolling
+   metrics (VWAP, volatility), and per-symbol freshness. Two interchangeable
+   implementations: a Python fallback (default, zero-build demo) and a Flink job
+   (`services/stream-processor/flink`, `--profile flink`) that publishes identical
+   contracted topics.
+5. **Redis hot cache** — the *only* store the live API reads. Keys are contracted in
+   `contracts/redis/keys.md` and can be rebuilt at any time from Kafka derived topics
+   (`market_platform.tools.rebuild_redis_from_kafka`).
+6. **Market data API** — FastAPI service serving WebSocket frames (`/ws/live`) with REST
+   polling fallback (`/live/snapshot`) for hosts without WebSocket support, plus per-symbol
+   snapshot, freshness, alert, and research endpoints.
+7. **Trader dashboard** — React/Vite/TypeScript UI (with a no-build static fallback)
+   showing live quotes, spreads, bars, volatility, freshness, alerts, and research insights.
+
+### Cold path: durable history
+
+Kafka topics land into Delta **bronze** (raw, append-only) → **silver** (normalized,
+deduplicated) → **gold** (research-ready features) via Spark jobs in `lakehouse/jobs`,
+orchestrated by Databricks Asset Bundles. The cold path is replay/research infrastructure
+only — the live API never queries it.
+
+### Research intelligence: documents → insights
+
+The `research-ingestor` polls arXiv (q-fin/cs.CE), crypto news RSS, and SEC EDGAR on a
+configurable loop, deduplicates by content hash, extracts structured insights
+(summary, symbols, tags, sentiment, entities) using a rule-based extractor (default, free,
+deterministic) or Claude (opt-in, budget-capped), persists to Postgres, and refreshes a
+Redis digest cache (`md:research:*`, 24 h TTL). The API and dashboard read **only the Redis
+cache** — Postgres and the LLM are never in the request path.
+
+### Agentic ops: evidence-backed diagnostics
+
+Repo docs, runbooks, Obsidian notes, and research insights are indexed into Postgres +
+pgvector. The MCP ops server exposes controlled, read-only-by-default tools — freshness
+checks, sequence-gap explanations, replay dry-runs, live-vs-replay comparison, incident
+summaries, lineage lookup, and research search — each answering with citations from the
+evidence store.
+
+---
 
 ## Repository Map
 
 | Path | Purpose |
 | --- | --- |
-| `services/feed-simulator` | Generates synthetic exchange-style market events for local and replay workflows. |
-| `services/feed-handler` | Normalizes raw feed messages, validates sequence numbers, and publishes canonical events. |
-| `services/stream-processor` | Owns Flink jobs for top-of-book, bars, rolling metrics, freshness, and alerts. |
-| `services/market-data-api` | Serves Redis-backed live state through WebSocket and REST APIs. |
-| `services/mcp-ops-server` | Exposes controlled MCP tools for reliability diagnostics and replay operations. |
-| `market_platform/research` | Research intelligence pipeline: arXiv/RSS/EDGAR sources, extraction, digest cache. |
-| `apps/trader-dashboard` | Frontend for live market state, latency, charts, alerts, and research insights. |
-| `lakehouse` | Databricks, Delta Lake, Spark jobs, and bronze/silver/gold table design. |
-| `contracts` | Versioned event schemas, Kafka topic contracts, and API payload contracts. |
-| `infra` | Local dependency stack, Kubernetes notes, and cloud infrastructure placeholders. |
-| `observability` | OpenTelemetry, metrics, dashboards, alerts, and SLO definitions. |
-| `docs` | Architecture, operational model, decisions, and roadmap. |
+| `market_platform/feeds/` | Pluggable feed sources: synthetic, Coinbase, Databento, file replay. |
+| `market_platform/services/feed_handler/` | Normalization, sequence validation, canonical event publishing. |
+| `market_platform/services/stream_processor/` | Python fallback stream processor (top-of-book, bars, metrics, freshness, alerts). |
+| `services/stream-processor/flink/` | Flink/Java stateful streaming job (same output contracts as the Python fallback). |
+| `market_platform/services/market_data_api/` | FastAPI WebSocket/REST API reading Redis hot state. |
+| `market_platform/services/research_ingestor/` | Research poll loop: fetch → dedupe → extract → store → refresh Redis digest. |
+| `market_platform/research/` | Research pipeline internals: sources, extractors, models, store, symbol map. |
+| `market_platform/services/mcp_ops_server/` | Controlled MCP tools for reliability diagnostics and research context. |
+| `apps/trader-dashboard/` | React/Vite/TypeScript dashboard (`src/`) with static no-build fallback (`static/`). |
+| `lakehouse/` | Delta table contracts, Databricks bundles, Spark bronze/silver/gold jobs, notebooks. |
+| `contracts/` | Versioned schemas: events, topics, Redis keys, API payloads, research documents/insights, MCP tools. |
+| `infra/` | Docker Compose stack, Dockerfiles, Kubernetes Kustomize, Terraform/GCP, secrets guidance. |
+| `observability/` | Metrics definitions, Grafana dashboard, alert rules, OTel collector config, log schema. |
+| `scripts/` | Demo launchers, load test, health wait, production artifact validator. |
+| `docs/` | Architecture, runbooks, decisions, deployment guides, performance, roadmap. |
+| `tests/` | Unit, contract, and integration tests (deterministic, no network required). |
 
-## First Build Milestones
+---
 
-1. Define canonical market data contracts and Kafka topic boundaries.
-2. Implement feed simulator and feed handler with sequence validation.
-3. Add Flink stream jobs for top-of-book, rolling bars, and freshness metrics.
-4. Serve hot state from Redis through WebSocket APIs.
-5. Land raw and curated datasets into Databricks Delta tables.
-6. Add MCP tools for freshness checks, replay dry-runs, and lineage lookup.
-7. Add dashboard views for live state, latency, alerts, and service health.
+## Quick Start
 
-## Local POC Demo
+### Prerequisites
 
-Step 0 and step 1 are implemented as a Docker Compose POC.
-
-Prerequisites:
-
-- Docker with Compose support.
-- Python virtual environment at `.venv` for local tests and service runs outside Docker.
-
-Set up local Python dependencies:
+- Docker with Compose support (for the full stack).
+- Python 3.11+ virtual environment for tests and running services outside Docker:
 
 ```bash
 python3 -m venv .venv
@@ -103,7 +182,7 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -e '.[dev]'
 ```
 
-Start the stack:
+### Option A — full local stack (Docker)
 
 ```bash
 ./scripts/run-local-demo.sh
@@ -113,41 +192,7 @@ Then open:
 
 - Dashboard: `http://localhost:8000`
 - API health: `http://localhost:8000/health`
-- Latest symbol snapshot: `http://localhost:8000/latest/AAPL`
-
-If Docker or Redis is not available and you only need to view the dashboard UI with seeded hot-state data:
-
-```bash
-MARKET_DATA_DEMO_MODE=1 .venv/bin/python -m market_platform.services.market_data_api
-```
-
-Then open `http://localhost:8000`.
-
-Local flow:
-
-```text
-feed simulator -> feed handler -> Redpanda topics -> stream processor -> Redis -> FastAPI/WebSocket -> dashboard
-```
-
-### Demo Snapshot
-
-![Dashboard demo](docs/assets/dashboard-demo.png)
-
-The simulator runs clean by default. To demo data-quality handling, set `SIMULATOR_SEQUENCE_GAP_PROBABILITY`, for example `SIMULATOR_SEQUENCE_GAP_PROBABILITY=0.03`, before starting the stack. The feed handler publishes detected gaps as `market.quality.alerts.v1`; the stream processor stores recent alerts in Redis so the dashboard can surface them.
-
-The feed handler treats a large backward sequence jump as a feed-session restart instead of a data-quality error. The default reset threshold is `SEQUENCE_RESTART_RESET_THRESHOLD=1000`.
-
-### Databento Real-Feed Demo
-
-The current default data source is synthetic. To drive the same dashboard with Databento, set `DATABENTO_API_KEY` and run the Databento profile:
-
-```bash
-export DATABENTO_API_KEY='db-...'
-export DATABENTO_TIMEOUT_SECONDS='120'
-docker compose -f infra/docker-compose.yml --profile databento up --build redpanda redis feed-handler stream-processor market-data-api databento-feed
-```
-
-Open `http://localhost:8000`. The full setup and low-cost replay options are in `docs/databento-demo.md`.
+- Latest snapshot: `http://localhost:8000/latest/AAPL`
 
 Stop the stack:
 
@@ -155,116 +200,157 @@ Stop the stack:
 docker compose -f infra/docker-compose.yml down
 ```
 
-Run unit and contract tests:
+### Option B — dashboard only, no Docker
+
+Seeded demo data, no Redis or Kafka required:
 
 ```bash
-.venv/bin/python -m pytest tests/unit
+MARKET_DATA_DEMO_MODE=1 .venv/bin/python -m market_platform.services.market_data_api
 ```
 
-## MVP Stateful Streaming
+### Option C — verify everything with tests
 
-Iteration 2 adds a Flink job in `services/stream-processor/flink` for stateful market calculations. The default demo still uses the Python fallback processor so the POC remains easy to run. Use the Flink profile when Docker can build the Java job image:
+```bash
+.venv/bin/python -m pytest          # all unit + contract + integration tests
+.venv/bin/python -m ruff check .    # lint
+.venv/bin/python scripts/validate-production-artifacts.py
+```
+
+![Dashboard demo](docs/assets/dashboard-demo.png)
+
+---
+
+## Layer 1 — Hot Path
+
+### Feed sources
+
+The feed layer is pluggable (`market_platform/feeds/`). All sources emit the same canonical
+events, so everything downstream is source-agnostic:
+
+| Source | Profile | Keys required | Use case |
+| --- | --- | --- | --- |
+| Synthetic simulator | (default) | none | Local dev, CI, deterministic demos |
+| File replay | `replay` | none | Deterministic e2e CI smoke tests |
+| Coinbase WebSocket | `coinbase` | none | Free live crypto quotes (`docs/coinbase-demo.md`) |
+| Databento | `databento` | `DATABENTO_API_KEY` | Real equities/futures feed (`docs/databento-demo.md`) |
+
+Live Databento example:
+
+```bash
+export DATABENTO_API_KEY='db-...'
+docker compose -f infra/docker-compose.yml --profile databento up --build \
+  redpanda redis feed-handler stream-processor market-data-api databento-feed
+```
+
+### Data-quality handling
+
+The simulator runs clean by default. To demo gap detection, set
+`SIMULATOR_SEQUENCE_GAP_PROBABILITY=0.03` before starting the stack — the feed handler
+publishes detected gaps to `market.quality.alerts.v1` and the dashboard surfaces them.
+A large backward sequence jump is treated as a feed-session restart rather than a gap
+(threshold: `SEQUENCE_RESTART_RESET_THRESHOLD=1000`).
+
+### Stream processing
+
+The default demo uses the Python fallback processor for zero-build startup. The Flink job
+is the production-shaped implementation:
 
 ```bash
 ./scripts/run-mvp-flink.sh
 ```
 
-The Flink job publishes:
+Both publish the same contracted topics —
+`market.state.top_of_book.v1`, `market.bars.1s.v1`, `market.metrics.rolling.v1`,
+`market.quality.alerts.v1` — and write Redis keys per `contracts/redis/keys.md`.
 
-- `market.state.top_of_book.v1`
-- `market.bars.1s.v1`
-- `market.metrics.rolling.v1`
-- `market.quality.alerts.v1`
+### Redis as rebuildable cache
 
-It writes Redis hot state under the keys documented in `contracts/redis/keys.md`.
-
-Rebuild Redis from derived Kafka topics:
+Redis is a cache, not a source of truth. Rebuild it from Kafka derived topics at any time:
 
 ```bash
 .venv/bin/python -m market_platform.tools.rebuild_redis_from_kafka --dry-run
 ```
 
-Run deterministic stream-output tests:
+---
 
-```bash
-.venv/bin/python -m pytest tests/integration
-```
+## Layer 2 — Cold Path Lakehouse
 
-Run the local API load test after the stack is live:
+Delta Lake assets live under `lakehouse/`:
 
-```bash
-.venv/bin/python scripts/load-test-local.py --symbol AAPL --requests 500 --concurrency 25
-```
+- **Contracts** — machine-readable Delta table definitions in `lakehouse/contracts/tables.yml`.
+- **Jobs** — Spark jobs for bronze ingest, silver normalization, gold features, quality
+  reports, and replay dry-runs in `lakehouse/jobs`.
+- **Orchestration** — Databricks Asset Bundle in `lakehouse/databricks/bundle.yml`.
+- **Research** — example backtest notebook in `lakehouse/notebooks/`.
 
-Benchmark setup and current known limits are tracked in `docs/performance.md`.
-
-## Latest Local Validation
-
-Last local validation ran against the Docker Compose stack with Redpanda, Redis, feed simulator, feed handler, stream processor, and market data API.
-
-Test results:
-
-- Python tests: `31 passed`
-- Ruff: passed
-- Production artifact validator: `production-artifacts-ok`
-- Local API load test against the running dashboard:
-  - `500` requests
-  - `0` failures
-  - `1444.59` requests/sec
-  - mean latency: `16.95 ms`
-  - p95 latency: `52.46 ms`
-  - p99 latency: `65.24 ms`
-- Maven/Flink build: passed with Java 17
-- Flink Docker image build: passed
-- Kubernetes manifest render: passed
-- Terraform init and validate: passed
-
-Validated Redpanda topics:
-
-- `feed.synthetic.raw.v1`
-- `market.raw.v1`
-- `market.trades.v1`
-- `market.quotes.v1`
-- `market.state.top_of_book.v1`
-- `market.bars.1s.v1`
-- `market.metrics.rolling.v1`
-- `market.quality.alerts.v1`
-
-Validation-driven updates:
-
-- Added `MARKET_DATA_DEMO_MODE=1` so the dashboard can render seeded hot-state data before Docker or Redis is available.
-- Added test coverage for dashboard demo mode.
-- Added `.m2/` and `.terraform/` to ignore rules so local Maven and Terraform caches do not pollute Git or Docker builds.
-- Terraform generated `infra/terraform/.terraform.lock.hcl`; keep this file committed to pin provider versions for reproducible deploys.
-
-## Cold Path Lakehouse
-
-Iteration 3 adds Databricks Delta cold-path assets under `lakehouse`:
-
-- Machine-readable Delta table contracts in `lakehouse/contracts/tables.yml`.
-- Databricks Asset Bundle jobs in `lakehouse/databricks/bundle.yml`.
-- Spark jobs for bronze ingest, silver normalization, gold features, quality reports, and replay dry-runs in `lakehouse/jobs`.
-- A research notebook example in `lakehouse/notebooks/research_backtest_example.py`.
-- Local transformation tests for bronze, silver, and gold table behavior.
-
-The cold path is replay/research infrastructure only. The live API continues to read Redis hot state and does not query Databricks.
-
-Validate local cold-path code and contracts:
+Bronze/silver/gold transformations are tested locally without a Databricks workspace:
 
 ```bash
 .venv/bin/python -m pytest tests/unit/test_lakehouse_transforms.py tests/unit/test_lakehouse_contracts.py
 ```
 
-When the Databricks CLI is available, validate/deploy the bundle from `lakehouse/databricks`:
+Deploy with the Databricks CLI:
 
 ```bash
+cd lakehouse/databricks
 databricks bundle validate -t dev
 databricks bundle deploy -t dev
 ```
 
-## Agentic Ops And Obsidian RAG
+---
 
-Iteration 4 adds a read-only MCP-style ops layer with RAG evidence over repo docs and Obsidian notes.
+## Layer 3 — Research Intelligence
+
+A QuantMind-style pipeline that turns papers, news, and filings into structured,
+symbol-mapped insights — built as a **cold-path service that never touches the hot path**.
+
+### Pipeline
+
+```text
+arXiv / RSS / EDGAR → research-ingestor (poll, dedupe by content hash)
+                    → extractor (rule-based | Claude, budget-capped)
+                    → Postgres (durable) + pgvector (searchable)
+                    → Redis digest cache (md:research:*, 24 h TTL)
+                    → REST API + dashboard + MCP tools
+```
+
+### Key properties
+
+- **Dual extraction** — the rule-based extractor is free, deterministic, and the default;
+  the Claude extractor is opt-in via `ANTHROPIC_API_KEY` with a hard daily budget cap
+  (`RESEARCH_LLM_DAILY_BUDGET_USD`) that falls back to rule-based on exhaustion.
+- **Hot-path isolation** — the API reads only the Redis digest cache; Postgres and the LLM
+  are never in the request path, so `/research/{symbol}` has the same latency profile as
+  `/latest/{symbol}` and works in Vercel demo mode.
+- **Crash isolation** — the ingestor runs as its own container; it can fail with zero
+  impact on quotes and trades.
+- **Determinism for CI** — a committed fixture (`market_platform/fixtures/research-sample.jsonl`)
+  drives the replay profile with no keys and no network.
+
+### Run it
+
+Offline from the fixture:
+
+```bash
+docker compose -f infra/docker-compose.yml --profile research-replay run --rm --build research-replay
+curl http://localhost:8000/research/BTC-USD
+```
+
+Live (arXiv + RSS, keyless):
+
+```bash
+docker compose -f infra/docker-compose.yml --profile research up --build
+```
+
+Quick start, configuration reference, and the LLM cost table: `docs/research-intelligence.md`.
+Architecture decisions: `docs/decisions/research-intelligence.md`.
+
+---
+
+## Layer 4 — Agentic Ops
+
+A read-only MCP-style ops layer with RAG evidence over repo docs, runbooks, and Obsidian
+notes — every answer cites its sources.
 
 Start the ops server:
 
@@ -272,65 +358,182 @@ Start the ops server:
 .venv/bin/python -m market_platform.services.mcp_ops_server
 ```
 
-Index an Obsidian vault and repo docs:
+Index evidence (Obsidian vault + repo docs):
 
 ```bash
 .venv/bin/python -m market_platform.tools.index_obsidian "obsidian/Market Data Research Vault" --source-type obsidian --json-store var/rag/vector-store.json
 .venv/bin/python -m market_platform.tools.index_obsidian docs contracts lakehouse --source-type docs --json-store var/rag/vector-store.json
 ```
 
-The dashboard includes an `Open Obsidian` action wired to the repo-local vault at `obsidian/Market Data Research Vault`.
+### Tools
 
-The production-shaped vector store is Postgres + pgvector using `infra/postgres/pgvector.sql`. Tools include freshness checks, sequence-gap explanations, replay dry-runs, live-vs-replay comparison, incident summaries, and lineage lookup.
+| Tool | What it does |
+| --- | --- |
+| `check_symbol_freshness` | Per-symbol staleness diagnosis with SLO context |
+| `explain_sequence_gap` | Root-cause context for gap alerts from runbooks |
+| `run_replay_dry_run` | Validates a replay plan without executing it |
+| `compare_live_vs_replay` | Diffs live state against replayed state |
+| `summarize_incident` | RAG summary across incident notes |
+| `lineage_lookup` | Topic/table lineage from contracts |
+| `research_search` | Semantic search over extracted research insights |
+| `symbol_research_context` | Market metrics + research citations in one answer |
+| `research_digest` | Latest cross-symbol insights, filtered by time window |
 
-More examples are in `docs/mcp-examples.md` and `docs/obsidian-rag.md`.
+The production-shaped vector store is Postgres + pgvector (`infra/postgres/pgvector.sql`);
+a JSON file store backs local development. Examples: `docs/mcp-examples.md`,
+`docs/obsidian-rag.md`.
 
-## Production Readiness
+---
 
-Iteration 5 adds production-facing assets:
+## Trader Dashboard
 
-- GitHub Actions CI for linting, tests, contract/artifact validation, Docker builds, and Flink Maven packaging.
-- Container image mapping in `infra/images`.
-- Kubernetes Kustomize manifests in `infra/kubernetes`.
-- GCP deployment target and Terraform scaffolding in `infra/gcp` and `infra/terraform`.
-- One-click Vercel hosting for the dashboard + API (with custom-domain setup) in `docs/vercel-deployment.md`.
-- Secret management guidance in `infra/secrets`.
-- Grafana dashboard, alert rules, structured log schema, and OpenTelemetry collector config in `observability`.
-- Runbooks and backup/recovery docs under `docs`.
+Two implementations, one API:
 
-Validate production artifacts locally:
+- **React** (`apps/trader-dashboard/src/`) — Vite + React 18 + TypeScript + Tailwind.
+  Typed hooks (`useLiveData` for WebSocket→polling fallback, `useResearch` for the 60 s
+  digest poll), tab navigation (Watchlist | Research), per-symbol collapsible research
+  panels, bid/ask price-flash animations, and a connection badge.
+- **Static fallback** (`apps/trader-dashboard/static/`) — zero-build vanilla JS with the
+  same functionality, served whenever the React build is absent.
 
 ```bash
+cd apps/trader-dashboard
+npm install
+npm run dev      # Vite dev server on :5173, proxying to the API on :8000
+npm run build    # outputs dist/ — FastAPI serves it automatically at /
+```
+
+The dashboard also includes an `Open Obsidian` action wired to the repo-local vault.
+
+---
+
+## API Reference
+
+All endpoints support optional API-key auth (`X-API-Key` header or `?api_key=`) with
+per-key token-bucket rate limiting when `API_KEYS` is configured.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /health` | Liveness + Redis ping |
+| `GET /symbols` | Active symbol set |
+| `GET /latest/{symbol}` | Full snapshot: quote, top-of-book, bar, metrics, freshness, alerts |
+| `GET /freshness/{symbol}` | Freshness lag and staleness status |
+| `GET /alerts/{symbol}` | Recent data-quality alerts |
+| `GET /live/snapshot` | One live frame over REST (WebSocket-free hosts, e.g. Vercel) |
+| `WS /ws/live` | Streaming live frames (0.5 s cadence, connection-capped) |
+| `GET /research/digest` | Latest cross-symbol research insights (Redis, ≤20) |
+| `GET /research/{symbol}` | Research insights for one symbol (Redis, ≤10) |
+| `GET /obsidian/project` | Obsidian vault link metadata |
+
+---
+
+## Deployment
+
+### Docker Compose profiles
+
+| Profile | Adds | Used for |
+| --- | --- | --- |
+| (none) | redpanda, redis, postgres, feed-simulator, feed-handler, stream-processor, market-data-api, mcp-ops-server, otel-collector | Default local stack |
+| `flink` | Flink jobmanager + taskmanager | Production-shaped stream processing |
+| `coinbase` | Coinbase WebSocket feed | Free live crypto data |
+| `replay` | Deterministic file-replay feed | CI e2e smoke |
+| `databento` | Databento live feed | Real market data |
+| `research` | Research ingestor (live arXiv/RSS) | Research intelligence |
+| `research-replay` | One-shot fixture-driven ingestor | CI research assertion |
+
+### Cloud
+
+- **Kubernetes** — Kustomize base + GCP overlay in `infra/kubernetes` (includes Flink
+  deployment manifests).
+- **Terraform / GCP** — scaffolding in `infra/terraform` and `infra/gcp`;
+  `.terraform.lock.hcl` is committed to pin providers.
+- **Vercel** — one-click dashboard + API hosting with custom-domain setup; serverless-safe
+  (lazy Redis init, REST polling instead of WebSockets). Guide: `docs/vercel-deployment.md`.
+- **Secrets** — management guidance in `infra/secrets`.
+
+---
+
+## Observability & Operations
+
+- **Metrics** — definitions in `observability/metrics.yml`; Grafana dashboard included.
+- **Alerts** — rules for hot-path freshness/gaps and research-pipeline staleness
+  (`observability/alerts/research-alerts.yml`).
+- **Tracing/Logs** — OpenTelemetry collector config and structured log schema in `observability/`.
+- **Runbooks** — operational procedures in `docs/runbooks/` (e.g. `research-ingest-stalled.md`).
+- **SLO posture** — freshness is a first-class signal: every symbol carries
+  `freshness_lag_ms` and a `fresh`/`stale` status end-to-end, from stream processor to
+  dashboard badge.
+
+---
+
+## Development & Testing
+
+```bash
+.venv/bin/python -m pytest tests/unit          # unit + contract tests
+.venv/bin/python -m pytest tests/integration   # deterministic stream-output tests
+.venv/bin/python -m ruff check .               # lint
 .venv/bin/python scripts/validate-production-artifacts.py
 ```
 
-Full production status and remaining runtime gates are tracked in `docs/production-readiness.md`.
+CI (GitHub Actions, `.github/workflows/ci.yml`) runs four jobs on every push/PR:
 
-## Research Intelligence
+1. **python-tests-contracts** — lint, compile, pytest, artifact validation.
+2. **docker-builds** — compose config validation + Python/Flink image builds.
+3. **flink-maven-package** — Java 17 Maven package of the Flink job.
+4. **e2e-smoke-replay** — boots the replay stack, asserts live snapshots, runs a load
+   test, and asserts research insights populate from the fixture.
 
-Iteration 7 adds a QuantMind-style research pipeline as a **cold-path service** that never touches the hot path: arXiv papers, crypto news RSS, and SEC EDGAR filings are fetched on a poll loop, extracted into structured insights (summary, symbols, tags, sentiment, entities), and surfaced through the dashboard, REST API, and MCP tools.
+All tests are deterministic: no network, no API keys, no cloud accounts required.
 
-- Extraction is dual-mode: a free, deterministic rule-based extractor (default) and an opt-in Claude extractor via `ANTHROPIC_API_KEY`, with a hard daily budget cap that falls back to rule-based on exhaustion.
-- The API reads **only the Redis digest cache** (`md:research:*`, 24h TTL) — Postgres and the LLM are never in the request path, so `/research/{symbol}` has the same latency profile as `/latest/{symbol}` and works in Vercel demo mode.
-- The `research-ingestor` runs as an isolated container; it can crash with zero impact on quotes and trades.
+---
 
-Run it offline from the committed fixture (no keys, no network):
+## Performance
 
-```bash
-docker compose -f infra/docker-compose.yml --profile research-replay up --build research-replay redis
-curl http://localhost:8000/research/BTC-USD
-```
+Local load test against the Docker Compose stack (`scripts/load-test-local.py`):
 
-Or live (arXiv + RSS, keyless):
+| Metric | Result |
+| --- | --- |
+| Requests | 500 (concurrency 25), 0 failures |
+| Throughput | ~1,445 req/s |
+| Mean latency | 16.95 ms |
+| p95 / p99 | 52.46 ms / 65.24 ms |
 
-```bash
-docker compose -f infra/docker-compose.yml --profile research up --build
-```
+Benchmark setup and known limits: `docs/performance.md`. CI uploads a fresh latency report
+artifact on every run.
 
-New MCP tools: `research_search`, `symbol_research_context` (market metrics + research citations in one answer), and `research_digest`. Each dashboard symbol card gains a collapsible Research panel refreshed every 60 seconds.
+---
 
-Quick start, configuration reference, and the LLM cost table are in `docs/research-intelligence.md`; the architecture decisions are recorded in `docs/decisions/research-intelligence.md`.
+## Design Principles
 
-## Positioning
+1. **Contracts first** — every boundary (events, topics, Redis keys, API payloads,
+   research documents) is a versioned, validated schema in `contracts/`.
+2. **Redis is a cache, not truth** — hot state is rebuildable from Kafka at any time.
+3. **Hot path is sacred** — cold path, research, and ops layers can fail or be torn down
+   with zero impact on live serving; nothing slow is ever in the request path.
+4. **Deterministic by default** — synthetic and replay sources make every layer runnable
+   and testable offline; paid feeds and LLM extraction are opt-in.
+5. **Agentic ops are controlled** — read-only by default, dry-run for anything mutating,
+   every answer cites evidence.
+6. **Costs are capped** — LLM extraction has a hard daily budget with graceful fallback;
+   the free rule-based path is always available.
 
-This is a data platform project, not a trading strategy project. It shows quant data infrastructure skills across streaming, lakehouse design, observability, replay, and controlled agentic operations.
+---
+
+## Documentation Index
+
+| Topic | Doc |
+| --- | --- |
+| Architecture deep-dive | `docs/architecture.md` |
+| Operational model | `docs/operational-model.md` |
+| Data contracts | `docs/data-contracts.md` |
+| Research intelligence guide | `docs/research-intelligence.md` |
+| Research design decisions | `docs/decisions/research-intelligence.md` |
+| Coinbase live demo | `docs/coinbase-demo.md` |
+| Databento live demo | `docs/databento-demo.md` |
+| Vercel deployment | `docs/vercel-deployment.md` |
+| MCP tool examples | `docs/mcp-examples.md` |
+| Obsidian RAG setup | `docs/obsidian-rag.md` |
+| Performance benchmarks | `docs/performance.md` |
+| Production readiness | `docs/production-readiness.md` |
+| Backup & recovery | `docs/backup-recovery.md` |
+| Roadmap | `docs/roadmap.md` |
