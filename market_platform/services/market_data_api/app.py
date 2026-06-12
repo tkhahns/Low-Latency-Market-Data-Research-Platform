@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 
 from market_platform.config import API_KEYS, CORS_ORIGINS, REDIS_URL, WS_MAX_CONNECTIONS
 from market_platform.redis_keys import (
@@ -47,6 +48,41 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 if _REACT_BUILD:
     app.mount("/assets", StaticFiles(directory=REACT_DIST_DIR / "assets"), name="react-assets")
+
+
+def _sanitized_redis_target() -> str:
+    """REDIS_URL with credentials stripped, safe to echo in error responses."""
+    from urllib.parse import urlsplit
+
+    parts = urlsplit(REDIS_URL)
+    host = parts.hostname or "?"
+    port = f":{parts.port}" if parts.port else ""
+    return f"{parts.scheme}://{host}{port}"
+
+
+@app.exception_handler(RedisError)
+async def redis_error_handler(request: Request, exc: RedisError) -> JSONResponse:
+    """Turn Redis connectivity failures into actionable 503s.
+
+    Without this, a missing/unreachable REDIS_URL surfaces on serverless hosts
+    as an opaque FUNCTION_INVOCATION_FAILED page with no diagnostic content.
+    """
+    return JSONResponse(
+        status_code=503,
+        content={
+            "error": "redis_unavailable",
+            "detail": f"{type(exc).__name__}: {exc}",
+            "redis_target": _sanitized_redis_target(),
+            "path": request.url.path,
+            "hint": (
+                "The API could not reach its Redis hot cache. On serverless hosts "
+                "(e.g. Vercel) set either MARKET_DATA_DEMO_MODE=1 for self-contained "
+                "seeded data, or REDIS_URL to a reachable managed Redis "
+                "(e.g. rediss://...@<host>:6379 from Upstash). "
+                "See docs/vercel-deployment.md."
+            ),
+        },
+    )
 
 # --- Rate limiting (token bucket, in-process) ---
 
