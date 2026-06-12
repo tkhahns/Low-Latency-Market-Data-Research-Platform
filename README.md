@@ -45,52 +45,84 @@ Four integrated layers, each independently deployable and isolated by design:
 
 ```mermaid
 flowchart TD
-    subgraph HOT["🔴 Hot Path"]
-        Feed[Market Feed / Simulator]
-        Handler[Feed Handler]
-        Kafka[(Kafka / Redpanda)]
-        Flink[Flink Stream Processor]
-        Redis[(Redis Hot Cache)]
-        API[WebSocket / REST API]
-        UI[Trader Dashboard]
 
-        Feed --> Handler --> Kafka --> Flink --> Redis --> API --> UI
+    subgraph HOT["🔴  HOT PATH — live market data · &lt;20 ms read latency"]
+        direction LR
+
+        FEEDS["Feed Sources  pluggable<br/>Synthetic · Coinbase WebSocket<br/>Databento · File Replay"]
+
+        FH["Feed Handler<br/>sequence validation · gap detection<br/>canonical schema normalization"]
+
+        RDP[("Redpanda  Kafka-compatible<br/>market.raw.v1 · .quotes.v1 · .trades.v1<br/>.state.top_of_book.v1 · .bars.1s.v1<br/>.metrics.rolling.v1 · .quality.alerts.v1")]
+
+        SPROC["Stream Processor<br/>Python fallback  or  Flink job<br/>top-of-book · 1-s bars<br/>rolling metrics · VWAP · volatility<br/>freshness · data-quality alerts"]
+
+        HRED[("Redis  hot cache<br/>rebuildable from Kafka at any time<br/>md:tob · md:bar · md:metrics<br/>md:freshness · md:alerts")]
+
+        APIV["Market Data API  FastAPI<br/>auth X-API-Key · rate-limit token-bucket<br/>WS /ws/live  REST /live/snapshot<br/>/latest/{s} · /freshness/{s} · /alerts/{s}<br/>/research/{s} · /research/digest"]
+
+        FEEDS -->|"raw exchange messages"| FH
+        FH ==>|"canonical v1 events"| RDP
+        RDP ==>|"derived-state topics"| SPROC
+        SPROC ==>|"computed state  0.5 s cadence"| HRED
+        HRED ==>|"key lookup  &lt;20 ms"| APIV
     end
 
-    subgraph COLD["🟡 Cold Path"]
-        Kafka --> Bronze[Delta Bronze]
-        Bronze --> Silver[Delta Silver]
-        Silver --> Gold[Delta Gold]
-        Gold --> Backtests[Research Queries / Backtests]
+    UI["Trader Dashboard<br/>React · Vite · TypeScript · Tailwind<br/>WebSocket → REST polling fallback<br/>live quotes · bars · volatility · alerts<br/>collapsible research panel · digest tab"]
+
+    APIV ==>|"WebSocket frames  or  REST polling"| UI
+
+    subgraph COLD["🟡  COLD PATH — Databricks Delta Lake — async · never in the request path"]
+        direction LR
+
+        BRNZ["Bronze<br/>raw · append-only<br/>Parquet on object store"]
+        SLVR["Silver<br/>normalized · deduped"]
+        GOLD["Gold<br/>research features<br/>aggregated OHLCV"]
+        BTST["Backtests &amp; Research Queries<br/>Spark jobs · Databricks notebooks<br/>Asset Bundle orchestration"]
+
+        BRNZ --> SLVR --> GOLD --> BTST
     end
 
-    subgraph RESEARCH["🟢 Research Intelligence"]
-        Sources[arXiv / RSS / EDGAR]
-        Ingestor[Research Ingestor]
-        Extract["Extractor (rule-based | Claude)"]
-        Digest[(Redis Digest Cache)]
+    RDP -.->|"async fan-out  all market topics"| BRNZ
 
-        Sources --> Ingestor --> Extract
-        Extract --> Digest
-        Digest --> API
-        Digest --> UI
+    subgraph RESEARCH["🟢  RESEARCH INTELLIGENCE — isolated container · poll every 15 min"]
+        direction LR
+
+        RSRC["Sources<br/>arXiv  q-fin · cs.CE<br/>Crypto RSS feeds<br/>SEC EDGAR  8-K · 10-Q · 10-K"]
+
+        RING["Research Ingestor<br/>SHA-256 content-hash dedupe<br/>jittered backoff 30–90 s<br/>health endpoint :8030"]
+
+        REXT["Extractor<br/>rule-based  free · deterministic · CI-safe  default<br/>Claude  ANTHROPIC_API_KEY  opt-in<br/>daily budget cap · fallback on exhaustion<br/>prompt caching  ~90% input cost reduction"]
+
+        PG[("Postgres<br/>durable insight store<br/>doc_id dedup index · pgvector ext")]
+
+        RDIG[("Redis Digest Cache<br/>md:research:{symbol}  ≤10 per symbol<br/>md:research:digest    ≤20 global<br/>24 h TTL · only path to the hot API")]
+
+        RSRC -->|"papers · news · filings"| RING
+        RING -->|"ResearchDocument"| REXT
+        REXT -->|"symbols · sentiment<br/>tags · entities · summary"| PG
+        REXT -->|"symbol-mapped digest"| RDIG
     end
 
-    subgraph OPS["🔵 Agentic Ops"]
-        Docs[Docs + Runbooks + Obsidian]
-        Metrics[Metrics + Incidents]
-        Vector[(Postgres + pgvector)]
-        MCP[MCP Ops Server]
-        Tools[Freshness / Replay / Lineage / Research Tools]
+    RDIG -->|"/research/* — same latency as /latest/*"| APIV
 
-        Docs --> Vector
-        Metrics --> Vector
-        Extract --> Vector
-        Vector --> MCP --> Tools
-        Tools --> Kafka
-        Tools --> Redis
-        Tools --> Gold
+    subgraph OPS["🔵  AGENTIC OPS — RAG-backed MCP — read-only by default"]
+        direction LR
+
+        ODOC["Docs · Runbooks<br/>Obsidian vault<br/>Incident notes"]
+
+        VEC[("pgvector<br/>Postgres + pgvector extension<br/>chunked embedding index<br/>RAG evidence store")]
+
+        MCP["MCP Ops Server<br/>check_symbol_freshness · explain_sequence_gap<br/>run_replay_dry_run · compare_live_vs_replay<br/>summarize_incident · lineage_lookup<br/>research_search · symbol_research_context<br/>research_digest"]
+
+        ODOC -->|"chunk + embed"| VEC
+        PG -->|"insight embeddings"| VEC
+        VEC -->|"semantic search · cited context"| MCP
     end
+
+    MCP -.->|"freshness check  read-only"| HRED
+    MCP -.->|"replay dry-run"| RDP
+    MCP -.->|"backtest · lineage query"| GOLD
 ```
 
 ---
